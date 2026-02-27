@@ -2,13 +2,14 @@
 
 @section('content')
     <div class="container-fluid">
-        <!-- Page Heading -->
-        <div class="d-sm-flex align-items-center justify-content-between mb-4">
-            <h1 class="h3 mb-0 text-gray-800">
-                <i class="fas fa-chalkboard-teacher mr-2 text-primary"></i>Instructor Management
-            </h1>
-            <a href="{{ route('admin.viewinstructor') }}" class="btn btn-outline-primary btn-sm">
-                <i class="fas fa-eye mr-1"></i> View Instructors
+        <!-- Page Header -->
+        <div class="pd-page-header d-flex align-items-center justify-content-between mb-4">
+            <div>
+                <h4 class="mb-1" style="font-weight:800;"><i class="fas fa-chalkboard-teacher mr-2"></i>Add Instructor</h4>
+                <p style="font-size:.85rem;">Register a new driving instructor to the system</p>
+            </div>
+            <a href="{{ route('admin.viewinstructor') }}" class="btn btn-light btn-sm font-weight-bold">
+                <i class="fas fa-list mr-1"></i>View Instructors
             </a>
         </div>
 

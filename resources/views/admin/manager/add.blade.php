@@ -2,13 +2,13 @@
 
 @section('content')
 <div class="container-fluid">
-    <!-- Page Heading -->
-    <div class="d-sm-flex align-items-center justify-content-between mb-4">
-        <h1 class="h3 mb-0 text-gray-800">
-            <i class="fas fa-user-plus mr-2 text-primary"></i>Add New Manager
-        </h1>
-        <a href="{{ route('admin.managers.index') }}" class="d-none d-sm-inline-block btn btn-sm btn-secondary shadow-sm">
-            <i class="fas fa-arrow-left fa-sm text-white-50"></i> Back to List
+    <div class="pd-page-header d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <h4 class="mb-1" style="font-weight:800;"><i class="fas fa-user-tie mr-2"></i>Add New Manager</h4>
+            <p style="font-size:.85rem;">Create a manager account and configure their permissions</p>
+        </div>
+        <a href="{{ route('admin.managers.index') }}" class="btn btn-light btn-sm font-weight-bold">
+            <i class="fas fa-list mr-1"></i>View Managers
         </a>
     </div>
 

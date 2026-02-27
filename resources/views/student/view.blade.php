@@ -1,72 +1,123 @@
 @extends('layouts.master')
+
+@section('styles')
+<style>
+    .student-avatar {
+        width: 34px; height: 34px; border-radius: 50%;
+        background: linear-gradient(135deg, var(--pd-navy), var(--pd-blue));
+        color: #fff; display: inline-flex; align-items: center; justify-content: center;
+        font-weight: 700; font-size: .8rem; flex-shrink: 0;
+    }
+</style>
+@endsection
+
 @section('content')
-<!-- Begin Page Content -->
-<div class="container-fluid px-4">
-    <!-- Page Heading -->
-    <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
-        <h1 class="h2 text-primary fw-bold">
-            <i class="fas fa-user-graduate me-2"></i>Students
-        </h1>
-        <a href="{{ route('addstudent') }}" class="btn btn-primary btn-sm rounded-pill">
-            <i class="fas fa-plus me-1"></i> Add New Student
+<div class="container-fluid">
+
+    <!-- Page Header -->
+    <div class="pd-page-header d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <h4 class="mb-1" style="font-weight:800;"><i class="fas fa-user-graduate mr-2"></i>Students</h4>
+            <p style="font-size:.85rem;">Manage all registered students and their records</p>
+        </div>
+        <a href="{{ route('addstudent') }}" class="btn btn-light btn-sm font-weight-bold">
+            <i class="fas fa-plus mr-1"></i>Add New Student
         </a>
     </div>
 
-    <!-- DataTales Example -->
-    <div class="card border-0 shadow-sm mb-4">
-        <div class="card-header bg-gradient-primary text-white d-flex justify-content-between align-items-center">
-            <h5 class="m-0 font-weight-bold">
-                <i class="fas fa-list me-2"></i>Student List
-            </h5>
+    <!-- Alerts -->
+    @if (session('success'))
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="fas fa-check-circle mr-2"></i>{{ session('success') }}
+            <button type="button" class="close" data-dismiss="alert"><span>&times;</span></button>
         </div>
-        
-        <div class="card-body p-4">
+    @endif
+    @if (session('error'))
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="fas fa-exclamation-triangle mr-2"></i>{{ session('error') }}
+            <button type="button" class="close" data-dismiss="alert"><span>&times;</span></button>
+        </div>
+    @endif
+
+    <!-- Student Table -->
+    <div class="card shadow mb-4">
+        <div class="card-header d-flex align-items-center justify-content-between">
+            <h6 class="m-0 font-weight-bold" style="color:var(--pd-navy);">
+                <i class="fas fa-list mr-2" style="color:var(--pd-blue);"></i>Student List
+            </h6>
+            <a href="{{ route('addstudent') }}" class="btn btn-primary btn-sm">
+                <i class="fas fa-plus mr-1"></i>Add Student
+            </a>
+        </div>
+        <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover" id="dataTable" width="100%" cellspacing="0">
-                    <thead class="table-light">
+                <table class="table mb-0" id="dataTable" width="100%">
+                    <thead>
                         <tr>
                             <th>Student ID</th>
-                            <th>Student Info</th>
+                            <th>Student</th>
                             <th>Start Date</th>
-                            <th>Completion Date</th>
-                            <th>Course Name</th>
-                            <th>Actions</th>
+                            <th>Completion</th>
+                            <th>Course</th>
+                            <th class="text-center">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach ($students as $student)
                             <tr>
-                                <td>{{ 'PD-'.(1000+$student->id) }}</td>
                                 <td>
-                                    {{ $student->first_name }} {{ $student->last_name }} <br>
+                                    <span class="font-weight-bold" style="color:var(--pd-blue); font-size:.82rem;">
+                                        PD-{{ 1000 + $student->id }}
+                                    </span>
                                 </td>
                                 <td>
-                                    @if ($student->joining_date != null)
-                                    {{ \Carbon\Carbon::parse($student->joining_date)->isoFormat('Do MMM, YYYY') }}
+                                    <div class="d-flex align-items-center" style="gap:.6rem;">
+                                        <div class="student-avatar">
+                                            {{ strtoupper(substr($student->first_name, 0, 1) . substr($student->last_name, 0, 1)) }}
+                                        </div>
+                                        <div>
+                                            <div class="font-weight-bold" style="font-size:.875rem; color:var(--pd-gray-800);">
+                                                {{ $student->first_name }} {{ $student->last_name }}
+                                            </div>
+                                            <div style="font-size:.75rem; color:var(--pd-gray-500);">{{ $student->email }}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td style="font-size:.83rem; color:var(--pd-gray-700);">
+                                    @if ($student->joining_date)
+                                        {{ \Carbon\Carbon::parse($student->joining_date)->format('M d, Y') }}
+                                    @else
+                                        <span class="text-muted">—</span>
                                     @endif
                                 </td>
                                 <td>
                                     @if ($student->completion_date == null)
-                                        <span class="badge bg-warning text-dark">In Progress</span>
+                                        <span class="badge badge-warning">In Progress</span>
                                     @else
-                                        {{ \Carbon\Carbon::parse($student->completion_date)->isoFormat('Do MMM, YYYY') }}
+                                        <span style="font-size:.83rem; color:var(--pd-success); font-weight:600;">
+                                            {{ \Carbon\Carbon::parse($student->completion_date)->format('M d, Y') }}
+                                        </span>
                                     @endif
                                 </td>
-                                <td>{{ $student->course->course_name?? '' }}</td>
-                                <td>
-                                    <div class="btn-group" role="group">
-                                        <a href="{{ route('view_student',$student->id) }}" class="btn btn-success btn-sm" title="View">
-                                            <i class="fas fa-eye"></i>
+                                <td style="font-size:.83rem;">
+                                    {{ $student->course->course_name ?? '—' }}
+                                </td>
+                                <td class="text-center">
+                                    <div class="d-flex justify-content-center" style="gap:.35rem;">
+                                        <a href="{{ route('view_student', $student->id) }}"
+                                           class="btn btn-icon btn-success" title="View Student" data-toggle="tooltip">
+                                            <i class="fas fa-eye fa-xs"></i>
                                         </a>
-                                        <a href="{{ route('edit_student',$student->id) }}" class="btn btn-primary btn-sm" title="Edit">
-                                            <i class="fas fa-edit"></i>
+                                        <a href="{{ route('edit_student', $student->id) }}"
+                                           class="btn btn-icon btn-primary" title="Edit Student" data-toggle="tooltip">
+                                            <i class="fas fa-edit fa-xs"></i>
                                         </a>
-                                        <a href="{{ route('delete_student', $student->id) }}" 
-                                           class="btn btn-danger btn-sm btn-delete" 
+                                        <a href="{{ route('delete_student', $student->id) }}"
+                                           class="btn btn-icon btn-danger btn-delete"
                                            data-student-id="{{ $student->id }}"
                                            data-student-name="{{ $student->first_name }} {{ $student->last_name }}"
-                                           title="Delete">
-                                            <i class="fas fa-trash-alt"></i>
+                                           title="Delete Student" data-toggle="tooltip">
+                                            <i class="fas fa-trash-alt fa-xs"></i>
                                         </a>
                                     </div>
                                 </td>
@@ -74,182 +125,139 @@
                         @endforeach
                     </tbody>
                 </table>
-                <div class="d-flex justify-content-center">
-                    {!! $students->links() !!}
-                </div>
             </div>
+            @if($students->hasPages())
+            <div class="d-flex justify-content-center py-3">
+                {!! $students->links() !!}
+            </div>
+            @endif
         </div>
     </div>
+
 </div>
 
 <!-- Payment Status Modal -->
-<div class="modal fade" id="exampleModal" tabindex="-1" role="dialog" aria-labelledby="paymentStatusModalLabel" aria-hidden="true">
+<div class="modal fade" id="exampleModal" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="paymentStatusModalLabel">
-                    <i class="fas fa-money-check-alt text-primary me-2"></i>Change Payment Status
-                </h5>
-                <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close"></button>
+                <h5 class="modal-title"><i class="fas fa-money-check-alt mr-2"></i>Change Payment Status</h5>
+                <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
             </div>
             <div class="modal-body">
-                Want to change payment status for this student?
+                <p class="text-muted mb-3">Mark this student's payment as paid?</p>
                 <form action="{{ route('change_payment_status') }}" method="post">
                     @csrf
                     <input id="student_id_payment" type="hidden" name="student_id_payment">
-                    <button type="submit" class="btn btn-success btn-sm mt-3">
-                        <i class="fas fa-check me-1"></i>Mark Paid
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check mr-1"></i>Mark as Paid
                     </button>
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
             </div>
         </div>
     </div>
 </div>
 
 <!-- Course Status Modal -->
-<div class="modal fade" id="exampleModal2" tabindex="-1" role="dialog" aria-labelledby="courseStatusModalLabel" aria-hidden="true">
+<div class="modal fade" id="exampleModal2" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="courseStatusModalLabel">
-                    <i class="fas fa-graduation-cap text-primary me-2"></i>Change Course Status
-                </h5>
-                <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close"></button>
+                <h5 class="modal-title"><i class="fas fa-graduation-cap mr-2"></i>Mark Course Complete</h5>
+                <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
             </div>
             <div class="modal-body">
-                Want to change course status for this student?
                 <form action="{{ route('change_course_status') }}" method="post">
                     @csrf
                     <input id="student_id_course" type="hidden" name="student_id_course">
-                    <div class="row g-3">
-                        <div class="col-12">
-                            <label for="hours_theory" class="form-label">
-                                <i class="fas fa-book-open text-primary me-2"></i>Theory Hours Completed
-                            </label>
-                            <input type="number" class="form-control" name="hours_theory" placeholder="e.g 4" required>
-                        </div>
-                        <div class="col-12">
-                            <label for="hours_practical" class="form-label">
-                                <i class="fas fa-tools text-primary me-2"></i>Practical Hours Completed
-                            </label>
-                            <input type="number" class="form-control" name="hours_practical" placeholder="e.g 4" required>
-                        </div>
-                        <div class="col-12">
-                            <label for="completion_date" class="form-label">
-                                <i class="fas fa-calendar-check text-primary me-2"></i>Completion Date
-                            </label>
-                            <input type="date" class="form-control" name="completion_date" required>
-                        </div>
+                    <div class="form-group">
+                        <label class="form-label"><i class="fas fa-book-open text-primary mr-1"></i>Theory Hours Completed</label>
+                        <input type="number" class="form-control" name="hours_theory" placeholder="e.g. 4" required>
                     </div>
-                    <button type="submit" class="btn btn-success btn-sm mt-3">
-                        <i class="fas fa-check me-1"></i>Mark Complete
+                    <div class="form-group">
+                        <label class="form-label"><i class="fas fa-tools text-primary mr-1"></i>Practical Hours Completed</label>
+                        <input type="number" class="form-control" name="hours_practical" placeholder="e.g. 4" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label"><i class="fas fa-calendar-check text-primary mr-1"></i>Completion Date</label>
+                        <input type="date" class="form-control" name="completion_date" required>
+                    </div>
+                    <button type="submit" class="btn btn-success w-100">
+                        <i class="fas fa-check mr-1"></i>Mark as Complete
                     </button>
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
             </div>
         </div>
     </div>
 </div>
-
 @endsection
+
 @section('scripts')
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-    $(document).ready(function() {
-        $('#dataTable').DataTable({
-            "columnDefs": [{
-                    "orderable": true,
-                    "targets": [5]
-                }, 
-                {
-                    "searchable": true,
-                    "targets": [1, 2]
-                } 
-            ],
-            "language": {
-                "emptyTable": "No students available",
-                "zeroRecords": "No matching students found"
-            },
-            "order": [
-                [0, "desc"]
-            ] // Default sort by ID descending
-        });
-        // Auto close alerts
-        window.setTimeout(function() {
-            $(".alert").fadeTo(500, 0).slideUp(500, function() {
-                $(this).remove();
-            });
-        }, 5000);
-
-        // Initialize tooltips
-        $('[data-toggle="tooltip"]').tooltip();
-
-        $('.btn-delete').on('click', function(e) {
-            e.preventDefault();
-            const studentId = $(this).data('student-id');
-            const studentName = $(this).data('student-name');
-            const deleteUrl = $(this).attr('href');
-
-            Swal.fire({
-                title: 'Confirm Deletion',
-                html: `
-                    <div class="text-left">
-                        <p>You are about to permanently delete the student record:</p>
-                        <strong>Student Name:</strong> ${studentName}<br>
-                        <strong>Student ID:</strong> PD-${1000 + studentId}<br><br>
-                        <div class="alert alert-warning">
-                            <strong>Warning:</strong> The following records will also be deleted:
-                            <ul class="text-left mt-2">
-                                <li>All associated Invoices</li>
-                                <li>All Installment records</li>
-                                <li>All Payment records</li>
-                            </ul>
-                        </div>
-                        <p class="text-danger">This action cannot be undone.</p>
-                    </div>
-                `,
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#d33',
-                cancelButtonColor: '#3085d6',
-                confirmButtonText: 'Yes, delete it!',
-                cancelButtonText: 'Cancel'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    // AJAX call to delete the student
-                    $.ajax({
-                        url: deleteUrl,
-                        type: 'DELETE',
-                        data: {
-                            _token: '{{ csrf_token() }}'
-                        },
-                        success: function(response) {
-                            Swal.fire({
-                                title: 'Deleted!',
-                                text: 'Student record has been deleted successfully.',
-                                icon: 'success'
-                            }).then(() => {
-                                // Reload the page or remove the row
-                                location.reload();
-                            });
-                        },
-                        error: function(xhr) {
-                            Swal.fire({
-                                title: 'Error!',
-                                text: 'Failed to delete student record.',
-                                icon: 'error'
-                            });
-                        }
-                    });
-                }
-            });
-        });
-
+$(document).ready(function() {
+    $('#dataTable').DataTable({
+        "columnDefs": [
+            { "orderable": false, "targets": [5] },
+            { "searchable": true, "targets": [1, 2] }
+        ],
+        "language": {
+            "emptyTable": "No students available",
+            "zeroRecords": "No matching students found"
+        },
+        "order": [[0, "desc"]]
     });
+
+    // Auto-close alerts
+    window.setTimeout(function() {
+        $(".alert").fadeTo(500, 0).slideUp(500, function() { $(this).remove(); });
+    }, 5000);
+
+    $('[data-toggle="tooltip"]').tooltip();
+
+    // Delete confirmation
+    $('.btn-delete').on('click', function(e) {
+        e.preventDefault();
+        const studentId   = $(this).data('student-id');
+        const studentName = $(this).data('student-name');
+        const deleteUrl   = $(this).attr('href');
+
+        Swal.fire({
+            title: 'Delete Student?',
+            html: `<p>You are about to permanently delete:</p>
+                   <strong>${studentName}</strong> (PD-${1000 + studentId})
+                   <div class="alert alert-warning mt-3 text-left" style="font-size:.85rem;">
+                       <i class="fas fa-exclamation-triangle mr-1"></i>
+                       All invoices, installments, and payment records will also be deleted.
+                   </div>`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#64748b',
+            confirmButtonText: 'Yes, delete',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.ajax({
+                    url: deleteUrl, type: 'DELETE',
+                    data: { _token: '{{ csrf_token() }}' },
+                    success: function() {
+                        Swal.fire('Deleted!', 'Student record has been deleted.', 'success')
+                            .then(() => location.reload());
+                    },
+                    error: function() {
+                        Swal.fire('Error!', 'Failed to delete student record.', 'error');
+                    }
+                });
+            }
+        });
+    });
+});
 </script>
 @endsection

@@ -1,14 +1,15 @@
 @extends('layouts.master')
 
 @section('content')
-    <div class="container-fluid px-4">
-        <!-- Page Heading -->
-        <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
-            <h1 class="h2 text-primary fw-bold">
-                <i class="fas fa-user-graduate me-2"></i> Student Registration
-            </h1>
-            <a href="{{ route('viewstudent') }}" class="btn btn-primary btn-sm rounded-pill">
-                <i class="fas fa-eye me-1"></i> View Students
+    <div class="container-fluid">
+        <!-- Page Header -->
+        <div class="pd-page-header d-flex align-items-center justify-content-between mb-4">
+            <div>
+                <h4 class="mb-1" style="font-weight:800;"><i class="fas fa-user-graduate mr-2"></i>Student Registration</h4>
+                <p style="font-size:.85rem;">Add a new student and assign them to a course</p>
+            </div>
+            <a href="{{ route('viewstudent') }}" class="btn btn-light btn-sm font-weight-bold">
+                <i class="fas fa-list mr-1"></i>View Students
             </a>
         </div>
 

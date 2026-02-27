@@ -1,835 +1,778 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Student Report - {{ $student->first_name }} {{ $student->last_name }}</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            font-size: 11px;
-            line-height: 1.4;
-            color: #2d3748;
-            background: #ffffff;
-            padding: 15mm;
+            font-family: 'DejaVu Sans', Arial, sans-serif;
+            font-size: 10px;
+            line-height: 1.5;
+            color: #1f2937;
+            background: #fff;
         }
+
+        /* Page layout */
+        .page { padding: 12mm 15mm; }
 
         /* Header */
         .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 25px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid #3182ce;
+            display: table;
+            width: 100%;
+            margin-bottom: 20px;
+            padding-bottom: 14px;
+            border-bottom: 2px solid #3b82f6;
         }
+        .header-left  { display: table-cell; vertical-align: middle; width: 60%; }
+        .header-right { display: table-cell; vertical-align: middle; text-align: right; }
+        .brand { font-size: 20px; font-weight: 700; color: #1e3a5f; letter-spacing: 1px; }
+        .brand-sub { font-size: 9px; color: #6b7280; margin-top: 2px; }
+        .report-meta { font-size: 8px; color: #6b7280; }
+        .report-meta strong { color: #374151; }
 
-        .logo-section {
-            display: flex;
-            align-items: center;
-        }
-
-        .logo {
-            width: 50px;
-            height: 50px;
-            background: #3182ce;
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        /* Student name banner */
+        .student-banner {
+            background: #1e3a5f;
             color: white;
-            font-weight: bold;
-            font-size: 16px;
-            margin-right: 12px;
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 16px;
+            display: table;
+            width: 100%;
         }
+        .banner-name { font-size: 16px; font-weight: 700; }
+        .banner-meta { font-size: 9px; opacity: 0.8; margin-top: 3px; }
 
-        .company-info h1 {
-            font-size: 20px;
-            color: #3182ce;
+        /* Status pills */
+        .pill {
+            display: inline-block;
+            padding: 2px 7px;
+            border-radius: 10px;
+            font-size: 8px;
             font-weight: 700;
-            margin: 0 0 3px 0;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
         }
-
-        .company-info p {
-            font-size: 10px;
-            color: #718096;
-            margin: 0;
-        }
-
-        .report-info {
-            text-align: right;
-            font-size: 9px;
-            color: #718096;
-        }
-
-        /* Title */
-        .report-title {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-
-        .report-title h1 {
-            font-size: 22px;
-            color: #2d3748;
-            margin-bottom: 5px;
-            font-weight: 600;
-        }
-
-        .report-title p {
-            color: #718096;
-            font-size: 11px;
-        }
+        .pill-success { background: #d1fae5; color: #065f46; }
+        .pill-warning { background: #fef3c7; color: #92400e; }
+        .pill-danger  { background: #fee2e2; color: #991b1b; }
+        .pill-primary { background: #dbeafe; color: #1e40af; }
+        .pill-secondary { background: #f1f5f9; color: #475569; }
+        .pill-purple  { background: #ede9fe; color: #5b21b6; }
+        .pill-info    { background: #cffafe; color: #155e75; }
 
         /* Sections */
-        .section {
-            margin-bottom: 25px;
-            page-break-inside: avoid;
+        .section { margin-bottom: 18px; page-break-inside: avoid; }
+        .section-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: #1e3a5f;
+            border-bottom: 1.5px solid #3b82f6;
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        .section-number {
+            display: inline-block;
+            background: #3b82f6;
+            color: white;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 18px;
+            font-size: 9px;
+            font-weight: 700;
+            margin-right: 6px;
         }
 
-        .section-header {
-            font-size: 14px;
-            font-weight: 600;
-            color: #2d3748;
-            margin-bottom: 12px;
-            padding-bottom: 6px;
-            border-bottom: 1px solid #3182ce;
-        }
+        /* Two column layout */
+        .two-col { display: table; width: 100%; table-layout: fixed; }
+        .col-l  { display: table-cell; width: 50%; padding-right: 10px; vertical-align: top; }
+        .col-r  { display: table-cell; width: 50%; padding-left: 10px; vertical-align: top; }
 
         /* Tables */
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 15px;
-            font-size: 10px;
+        table { width: 100%; border-collapse: collapse; font-size: 9px; margin-bottom: 10px; }
+        th { background: #f1f5f9; padding: 6px 8px; text-align: left; font-weight: 700; color: #374151; border: 1px solid #e2e8f0; font-size: 8px; }
+        td { padding: 6px 8px; border: 1px solid #e2e8f0; }
+        tr:nth-child(even) td { background: #f8fafc; }
+
+        /* Info table (key-value) */
+        .kv-table td:first-child { font-weight: 700; color: #374151; width: 38%; background: #f8fafc; }
+        .kv-table td { border: none; border-bottom: 1px solid #f1f5f9; padding: 5px 8px; }
+
+        /* Summary stats */
+        .stats-row { display: table; width: 100%; margin-bottom: 14px; }
+        .stat-cell { display: table-cell; text-align: center; border: 1px solid #e2e8f0; border-radius: 4px; padding: 8px; }
+        .stat-val { font-size: 16px; font-weight: 700; color: #1f2937; }
+        .stat-lbl { font-size: 7.5px; color: #6b7280; margin-top: 2px; }
+
+        /* Progress bars */
+        .prog-wrap { margin-bottom: 10px; }
+        .prog-row { display: table; width: 100%; margin-bottom: 3px; }
+        .prog-lbl { display: table-cell; font-size: 9px; font-weight: 700; color: #374151; width: 30%; }
+        .prog-pct { display: table-cell; text-align: right; font-size: 9px; font-weight: 700; width: 10%; }
+        .prog-bg { height: 10px; background: #f1f5f9; border-radius: 5px; margin-bottom: 8px; overflow: hidden; }
+        .prog-fill { height: 100%; border-radius: 5px; }
+        .fill-theory    { background: #3b82f6; }
+        .fill-practical { background: #10b981; }
+        .fill-overall   { background: #8b5cf6; }
+        .prog-meta { font-size: 8px; color: #6b7280; margin-bottom: 10px; }
+
+        /* Class list */
+        .class-row { display: table; width: 100%; border-bottom: 1px solid #f1f5f9; padding: 5px 0; }
+        .class-num-cell { display: table-cell; width: 28px; vertical-align: middle; }
+        .class-num-badge {
+            width: 22px; height: 22px; border-radius: 50%; text-align: center; line-height: 22px;
+            font-size: 8px; font-weight: 700; display: inline-block;
         }
+        .badge-done    { background: #d1fae5; color: #065f46; }
+        .badge-active  { background: #dbeafe; color: #1e40af; }
+        .badge-pending { background: #f1f5f9; color: #6b7280; }
+        .class-body-cell { display: table-cell; vertical-align: middle; }
+        .class-title-text { font-size: 9px; font-weight: 700; color: #1f2937; }
+        .class-meta-text  { font-size: 8px; color: #6b7280; }
 
-        th {
-            background: #f7fafc;
-            padding: 8px 10px;
-            text-align: left;
-            font-weight: 600;
-            color: #4a5568;
-            border: 1px solid #e2e8f0;
-            font-size: 9px;
-        }
+        /* Practical slot box */
+        .slot-box { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 10px; }
+        .slot-grid { display: table; width: 100%; }
+        .slot-cell { display: table-cell; width: 33%; padding-right: 8px; }
+        .slot-lbl { font-size: 7.5px; font-weight: 700; text-transform: uppercase; color: #047857; margin-bottom: 2px; }
+        .slot-val { font-size: 9px; font-weight: 700; color: #1f2937; }
 
-        td {
-            padding: 8px 10px;
-            border: 1px solid #e2e8f0;
-            font-size: 10px;
-        }
+        /* Feedback */
+        .fb-block { border: 1px solid #e2e8f0; border-radius: 4px; margin-bottom: 8px; overflow: hidden; }
+        .fb-header { background: #f1f5f9; padding: 5px 8px; font-weight: 700; font-size: 9px; color: #374151; border-bottom: 1px solid #e2e8f0; }
+        .fb-item { display: table; width: 100%; border-bottom: 1px solid #f1f5f9; padding: 5px 8px; }
+        .fb-item:last-child { border-bottom: none; }
+        .fb-q-cell { display: table-cell; font-size: 9px; }
+        .fb-r-cell { display: table-cell; text-align: right; width: 40px; font-size: 9px; font-weight: 700; }
+        .fb-yes { color: #10b981; }
+        .fb-no  { color: #ef4444; }
 
-        tr:nth-child(even) {
-            background: #f8f9fa;
-        }
+        /* Payment invoice box */
+        .invoice-box { border: 1px solid #e2e8f0; border-radius: 5px; margin-bottom: 10px; overflow: hidden; }
+        .invoice-hdr { background: #f8fafc; padding: 7px 10px; display: table; width: 100%; border-bottom: 1px solid #e2e8f0; }
+        .invoice-title-cell { display: table-cell; font-size: 10px; font-weight: 700; }
+        .invoice-amount-cell { display: table-cell; text-align: right; font-size: 10px; font-weight: 700; }
+        .invoice-body { padding: 8px 10px; }
 
-        /* Layout */
-        .two-column {
-            display: flex;
-            gap: 15px;
-        }
+        /* Completion steps */
+        .step-row { display: table; width: 100%; margin-bottom: 10px; }
+        .step-dot-cell { display: table-cell; width: 26px; vertical-align: top; text-align: center; }
+        .step-dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid; display: inline-block; text-align: center; line-height: 14px; font-size: 8px; font-weight: 700; }
+        .step-dot.done    { border-color: #10b981; color: #10b981; background: #d1fae5; }
+        .step-dot.active  { border-color: #3b82f6; color: #3b82f6; background: #dbeafe; }
+        .step-dot.pending { border-color: #d1d5db; color: #9ca3af; background: #f9fafb; }
+        .step-body-cell { display: table-cell; vertical-align: top; padding-left: 8px; }
+        .step-title { font-size: 10px; font-weight: 700; color: #1f2937; }
+        .step-desc  { font-size: 8px; color: #6b7280; margin-top: 1px; }
 
-        .column {
-            flex: 1;
-        }
+        /* Hours log */
+        .hour-row { display: table; width: 100%; border-bottom: 1px solid #f1f5f9; padding: 4px 0; }
+        .hour-date { display: table-cell; font-size: 9px; color: #6b7280; width: 90px; }
+        .hour-type { display: table-cell; font-size: 8px; font-weight: 700; }
+        .hour-val  { display: table-cell; text-align: right; font-size: 9px; font-weight: 700; }
 
-        /* Progress Section */
-        .progress-item {
-            margin-bottom: 20px;
-        }
-
-        .progress-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 6px;
-        }
-
-        .progress-title {
-            font-size: 12px;
-            font-weight: 600;
-            color: #4a5568;
-        }
-
-        .progress-percent {
-            font-size: 12px;
-            font-weight: 600;
-            color: #3182ce;
-        }
-
-        .progress-bar-container {
-            width: 100%;
-            height: 16px;
-            background: #edf2f7;
-            border-radius: 8px;
-            overflow: hidden;
-            margin-bottom: 8px;
-        }
-
-        .progress-bar {
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 8px;
-            font-weight: 600;
-        }
-
-        .progress-theory {
-            background: linear-gradient(90deg, #3182ce, #4299e1);
-        }
-
-        .progress-practical {
-            background: linear-gradient(90deg, #38a169, #48bb78);
-        }
-
-        .progress-details {
-            font-size: 9px;
-            color: #718096;
-            line-height: 1.3;
-        }
-
-        /* Info Cards */
-        .info-cards {
-            display: flex;
-            gap: 12px;
-            margin-bottom: 20px;
-        }
-
-        .info-card {
-            flex: 1;
-            background: white;
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            padding: 15px;
-            text-align: center;
-            position: relative;
-        }
-
-        .info-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-            border-radius: 6px 6px 0 0;
-        }
-
-        .info-card.blue::before { background: #3182ce; }
-        .info-card.green::before { background: #38a169; }
-        .info-card.orange::before { background: #ed8936; }
-
-        .info-card-label {
-            font-size: 9px;
-            color: #718096;
-            margin-bottom: 5px;
-            font-weight: 500;
-        }
-
-        .info-card-value {
-            font-size: 18px;
-            font-weight: 700;
-            color: #2d3748;
-        }
-
-        /* Badges */
-        .badge {
-            display: inline-block;
-            padding: 2px 6px;
-            font-size: 8px;
-            font-weight: 600;
-            text-transform: uppercase;
-            border-radius: 10px;
-            color: white;
-        }
-
-        .badge-success { background: #38a169; }
-        .badge-warning { background: #ed8936; }
-        .badge-danger { background: #e53e3e; }
-        .badge-primary { background: #3182ce; }
-        .badge-secondary { background: #718096; }
-
-        /* Schedule Box */
-        .schedule-box {
-            background: #f7fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            padding: 15px;
-            margin: 10px 0;
-        }
-
-        .schedule-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-        }
-
-        .schedule-item {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .schedule-label {
-            font-size: 8px;
-            color: #718096;
-            font-weight: 600;
-            margin-bottom: 3px;
-            text-transform: uppercase;
-        }
-
-        .schedule-value {
-            font-size: 10px;
-            color: #2d3748;
-            font-weight: 500;
-        }
-
-        /* Cards */
-        .card {
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            margin-bottom: 15px;
-            overflow: hidden;
-        }
-
-        .card-header {
-            background: #f7fafc;
-            padding: 10px 15px;
-            border-bottom: 1px solid #e2e8f0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .card-title {
-            font-size: 11px;
-            font-weight: 600;
-            color: #2d3748;
-        }
-
-        .card-body {
-            padding: 15px;
-        }
-
-        /* Callouts */
-        .callout {
-            border-left: 3px solid #3182ce;
-            background: #ebf8ff;
-            padding: 10px 15px;
-            margin: 10px 0;
-            border-radius: 0 3px 3px 0;
-        }
-
-        .callout-warning {
-            border-left-color: #ed8936;
-            background: #fffaf0;
-        }
-
-        .callout-success {
-            border-left-color: #38a169;
-            background: #f0fff4;
-        }
-
-        .callout h5 {
-            font-size: 10px;
-            font-weight: 600;
-            color: #2d3748;
-            margin-bottom: 5px;
-        }
-
-        .callout p {
-            font-size: 9px;
-            color: #4a5568;
-            margin: 0;
-            line-height: 1.4;
-        }
+        /* Callout box */
+        .callout { border-left: 3px solid #3b82f6; background: #eff6ff; padding: 8px 10px; border-radius: 0 4px 4px 0; margin: 8px 0; }
+        .callout-success { border-left-color: #10b981; background: #f0fdf4; }
+        .callout-warning { border-left-color: #f59e0b; background: #fffbeb; }
+        .callout-title { font-size: 9px; font-weight: 700; color: #1f2937; margin-bottom: 3px; }
+        .callout-text  { font-size: 8.5px; color: #4b5563; }
 
         /* Footer */
-        .footer {
-            text-align: center;
-            margin-top: 30px;
-            padding-top: 15px;
-            border-top: 1px solid #e2e8f0;
-            font-size: 8px;
-            color: #718096;
-        }
+        .footer { text-align: center; padding-top: 12px; border-top: 1px solid #e2e8f0; margin-top: 20px; font-size: 8px; color: #9ca3af; }
 
-        /* Utilities */
-        .text-bold { font-weight: 600; }
-        .text-center { text-align: center; }
-        .text-right { text-align: right; }
-        .mb-10 { margin-bottom: 10px; }
-        .mb-15 { margin-bottom: 15px; }
-        .mt-15 { margin-top: 15px; }
-
-        /* Status Fixes */
-        .status-display {
-            text-transform: capitalize;
-        }
-
-        .amount-display {
-            font-weight: 600;
-            color: #2d3748;
-        }
-
-        @media print {
-            body { padding: 10mm; }
-        }
+        /* Utils */
+        .text-success { color: #10b981; }
+        .text-danger  { color: #ef4444; }
+        .text-primary { color: #3b82f6; }
+        .text-muted   { color: #6b7280; }
+        .fw-700 { font-weight: 700; }
+        .mb-8   { margin-bottom: 8px; }
     </style>
 </head>
-
 <body>
-    <!-- Header -->
+<div class="page">
+
+    {{-- ========== HEADER ========== --}}
     <div class="header">
-        <div class="logo-section">
-            <div class="logo">
-                {{-- <img src="{{ asset('images/prodrive-logo.png') }}" alt="PD" style="width: 35px; height: 35px; border-radius: 3px;" onerror="this.style.display='none'; this.parentNode.innerHTML='PD';"> --}}
-            </div>
-            <div class="company-info">
-                <h1>PRODRIVE</h1>
-                <p>Professional Driving School</p>
-            </div>
+        <div class="header-left">
+            <div class="brand">PRODRIVE</div>
+            <div class="brand-sub">Professional Driving School Management</div>
         </div>
-        <div class="report-info">
-            <div><strong>Student Progress Report</strong></div>
-            <div>Generated: {{ date('M d, Y') }}</div>
-            <div>Time: {{ date('h:i A') }}</div>
+        <div class="header-right">
+            <div class="report-meta">
+                <strong>Student Progress Report</strong><br>
+                Generated: {{ date('M d, Y h:i A') }}<br>
+                Report ID: SR-{{ $student->id }}-{{ date('Ymd') }}
+            </div>
         </div>
     </div>
 
-    <!-- Title -->
-    <div class="report-title">
-        <h1>Student Academic & Financial Report</h1>
-        <p>Comprehensive Progress Overview</p>
+    {{-- ========== STUDENT BANNER ========== --}}
+    <div class="student-banner">
+        <div class="banner-name">{{ $student->first_name }} {{ $student->last_name }}</div>
+        <div class="banner-meta">
+            Student ID #{{ $student->id }} &bull; {{ $student->email }}
+            @if($student->student_contact) &bull; {{ $student->student_contact }} @endif
+            &bull;
+            @php
+                $statusLabels = ['0'=>['Pending','pill-warning'],'1'=>['In Progress','pill-primary'],'2'=>['Completed','pill-success']];
+                $cs = $statusLabels[(string)$student->course_status] ?? ['Unknown','pill-secondary'];
+            @endphp
+            Course: <strong>{{ $cs[0] }}</strong>
+        </div>
     </div>
 
-    <!-- Student Information -->
+    {{-- ========== SUMMARY STATS ========== --}}
+    <div class="stats-row mb-8" style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;">
+        <div class="stat-cell" style="border-right:1px solid #e2e8f0;">
+            <div class="stat-val" style="color:#3b82f6;">{{ $courseProgress['theory']['percentage'] }}%</div>
+            <div class="stat-lbl">Theory Progress</div>
+        </div>
+        <div class="stat-cell" style="border-right:1px solid #e2e8f0;">
+            <div class="stat-val" style="color:#10b981;">{{ $courseProgress['practical']['percentage'] }}%</div>
+            <div class="stat-lbl">Practical Progress</div>
+        </div>
+        <div class="stat-cell" style="border-right:1px solid #e2e8f0;">
+            <div class="stat-val">{{ $courseProgress['theory']['completed'] + $courseProgress['practical']['completed'] }}h</div>
+            <div class="stat-lbl">Total Hours Done</div>
+        </div>
+        <div class="stat-cell" style="border-right:1px solid #e2e8f0;">
+            <div class="stat-val" style="color:#10b981;">${{ number_format($totalPaid, 0) }}</div>
+            <div class="stat-lbl">Amount Paid</div>
+        </div>
+        <div class="stat-cell" style="border-right:1px solid #e2e8f0;">
+            <div class="stat-val" style="color:#ef4444;">${{ number_format($pendingPayments, 0) }}</div>
+            <div class="stat-lbl">Balance Due</div>
+        </div>
+        <div class="stat-cell">
+            <div class="stat-val" style="color:#8b5cf6;">{{ $certificate ? 'Yes' : 'No' }}</div>
+            <div class="stat-lbl">Certified</div>
+        </div>
+    </div>
+
+    {{-- ========== SECTION 1: STUDENT PROFILE ========== --}}
     <div class="section">
-        <div class="section-header">Student Information</div>
-        <div class="two-column">
-            <div class="column">
-                <table>
-                    <tr>
-                        <th width="40%">Student ID</th>
-                        <td>{{ $student->id }}</td>
-                    </tr>
-                    <tr>
-                        <th>Full Name</th>
-                        <td>{{ $student->first_name }} {{ $student->last_name }}</td>
-                    </tr>
-                    <tr>
-                        <th>Email</th>
-                        <td>{{ $student->email }}</td>
-                    </tr>
-                    <tr>
-                        <th>Phone</th>
-                        <td>{{ $student->student_contact ?: 'Not provided' }}</td>
-                    </tr>
-                    <tr>
-                        <th>Date of Birth</th>
-                        <td>{{ $student->student_dob ? date('M d, Y', strtotime($student->student_dob)) : 'Not provided' }}</td>
-                    </tr>
+        <div class="section-title"><span class="section-number">1</span> Student Profile & Registration</div>
+        <div class="two-col">
+            <div class="col-l">
+                <table class="kv-table">
+                    <tr><td>Full Name</td><td>{{ $student->first_name }} {{ $student->last_name }}</td></tr>
+                    <tr><td>Email</td><td>{{ $student->email }}</td></tr>
+                    <tr><td>Phone</td><td>{{ $student->student_contact ?: '—' }}</td></tr>
+                    <tr><td>Date of Birth</td><td>{{ $student->student_dob ? \Carbon\Carbon::parse($student->student_dob)->format('M d, Y') : '—' }}</td></tr>
+                    <tr><td>Address</td><td>{{ $student->address ?: '—' }}</td></tr>
                 </table>
             </div>
-            <div class="column">
-                <table>
-                    <tr>
-                        <th width="40%">Enrollment Date</th>
-                        <td>{{ $student->joining_date ? date('M d, Y', strtotime($student->joining_date)) : 'Not provided' }}</td>
-                    </tr>
-                    <tr>
-                        <th>Course Status</th>
-                        <td>
-                            @php
-                                $courseStatus = strtolower($student->course_status ?? 'not_started');
-                                $statusMap = [
-                                    'completed' => ['Completed', 'badge-success'],
-                                    'in_progress' => ['In Progress', 'badge-primary'],
-                                    'active' => ['Active', 'badge-primary'],
-                                    'pending' => ['Pending', 'badge-warning'],
-                                    'not_started' => ['Not Started', 'badge-secondary']
-                                ];
-                                $status = $statusMap[$courseStatus] ?? ['Unknown', 'badge-secondary'];
-                            @endphp
-                            <span class="badge {{ $status[1] }}">{{ $status[0] }}</span>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th>Payment Status</th>
-                        <td>
-                            @php
-                                $paymentStatus = strtolower($student->payment_status ?? 'pending');
-                                $paymentMap = [
-                                    'paid' => ['Paid', 'badge-success'],
-                                    'full' => ['Paid', 'badge-success'],
-                                    'partial' => ['Partial', 'badge-warning'],
-                                    'pending' => ['Pending', 'badge-warning'],
-                                    'overdue' => ['Overdue', 'badge-danger']
-                                ];
-                                $payment = $paymentMap[$paymentStatus] ?? ['Pending', 'badge-warning'];
-                            @endphp
-                            <span class="badge {{ $payment[1] }}">{{ $payment[0] }}</span>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th>Guardian</th>
-                        <td>{{ $student->parent_name ?: 'Not provided' }}</td>
-                    </tr>
-                    <tr>
-                        <th>Address</th>
-                        <td>{{ $student->address ?: 'Not provided' }}</td>
-                    </tr>
+            <div class="col-r">
+                <table class="kv-table">
+                    <tr><td>Enrollment Date</td><td>{{ $student->joining_date ? \Carbon\Carbon::parse($student->joining_date)->format('M d, Y') : '—' }}</td></tr>
+                    <tr><td>Completion Date</td><td>{{ $student->completion_date ? \Carbon\Carbon::parse($student->completion_date)->format('M d, Y') : 'Pending' }}</td></tr>
+                    <tr><td>Course Status</td><td><span class="pill {{ $cs[1] }}">{{ $cs[0] }}</span></td></tr>
+                    <tr><td>Parent/Guardian</td><td>{{ $student->parent->name ?? '—' }}</td></tr>
+                    <tr><td>Parent Contact</td><td>{{ $student->parent->contact ?? '—' }}</td></tr>
                 </table>
             </div>
         </div>
     </div>
 
-    <!-- Course Information -->
-    @if ($student->course)
-        <div class="section">
-            <div class="section-header">Course Information</div>
-            <table>
-                <tr>
-                    <th width="25%">Course Name</th>
-                    <td>{{ $student->course->course_name }}</td>
-                    <th width="25%">Course Type</th>
-                    <td class="status-display">{{ $student->course->course_type }}</td>
-                </tr>
-                <tr>
-                    <th>Theory Hours Required</th>
-                    <td>{{ $student->course->theory_hours ?? 0 }} hours</td>
-                    <th>Practical Hours Required</th>
-                    <td>{{ $student->course->practical_hours ?? 0 }} hours</td>
-                </tr>
-                <tr>
-                    <th>Total Theory Classes</th>
-                    <td>{{ $student->course->total_theory_classes ?? 'Not specified' }}</td>
-                    <th>Total Practical Classes</th>
-                    <td>{{ $student->course->total_practical_classes ?? 'Not specified' }}</td>
-                </tr>
-                <tr>
-                    <th>Course Fee</th>
-                    <td><span class="amount-display">${{ number_format($student->course->course_price ?? 0, 2) }}</span></td>
-                    <th>Assigned Instructor</th>
-                    <td>{{ $student->instructor->instructor_name ?? 'Not assigned' }}</td>
-                </tr>
+    {{-- ========== SECTION 2: COURSE STRUCTURE ========== --}}
+    @if($student->course)
+    <div class="section">
+        <div class="section-title"><span class="section-number">2</span> Course Structure Mapping</div>
+        <table class="kv-table mb-8">
+            <tr>
+                <td>Course Name</td><td>{{ $student->course->course_name }}</td>
+                <td>Course Type</td><td>{{ $student->course->course_type }}</td>
+            </tr>
+            <tr>
+                <td>Theory Classes</td><td>{{ $student->course->total_theory_classes ?? '—' }} total / {{ $courseProgress['theory']['classes_completed'] }} completed</td>
+                <td>Practical Classes</td><td>{{ $student->course->total_practical_classes ?? '—' }} total / {{ $courseProgress['practical']['classes_completed'] }} completed</td>
+            </tr>
+            <tr>
+                <td>Theory Hours</td><td>{{ $courseProgress['theory']['completed'] }}h done / {{ $courseProgress['theory']['total'] }}h required</td>
+                <td>Practical Hours</td><td>{{ $courseProgress['practical']['completed'] }}h done / {{ $courseProgress['practical']['total'] }}h required</td>
+            </tr>
+            <tr>
+                <td>Course Fee</td><td>${{ number_format($student->course->course_price, 2) }}</td>
+                <td>Installment Plan</td><td>{{ $student->course->has_installment_plan ? 'Yes' : 'No' }}</td>
+            </tr>
+        </table>
+
+        <div class="two-col">
+            <div class="col-l">
+                <div style="font-size:9px;font-weight:700;color:#374151;margin-bottom:6px;">Theory Curriculum ({{ $theoryLessonPlans->count() }} classes)</div>
+                @forelse($theoryLessonPlans as $plan)
+                    @php
+                        $cn = $plan->pivot->class_order;
+                        $st = $student->theory_status == 'completed' ? 'done'
+                            : ($cn <= $courseProgress['theory']['classes_completed'] ? 'done'
+                                : ($cn == $courseProgress['theory']['classes_completed'] + 1 ? 'active' : 'pending'));
+                    @endphp
+                    <div class="class-row">
+                        <div class="class-num-cell">
+                            <span class="class-num-badge badge-{{ $st }}">{{ $cn }}</span>
+                        </div>
+                        <div class="class-body-cell">
+                            <div class="class-title-text">{{ $plan->title }}</div>
+                            <div class="class-meta-text">Class #{{ $cn }} &bull;
+                                @if($st=='done') <span class="text-success">Done</span>
+                                @elseif($st=='active') <span class="text-primary">In Progress</span>
+                                @else Upcoming @endif
+                            </div>
+                        </div>
+                    </div>
+                @empty
+                    <div style="font-size:9px;color:#9ca3af;padding:8px 0;">No theory lesson plans configured.</div>
+                @endforelse
+            </div>
+            <div class="col-r">
+                <div style="font-size:9px;font-weight:700;color:#374151;margin-bottom:6px;">Practical Curriculum ({{ $practicalLessonPlans->count() }} classes)</div>
+                @forelse($practicalLessonPlans as $plan)
+                    @php
+                        $cn = $plan->pivot->class_order;
+                        $st = $student->practical_status == 'completed' ? 'done'
+                            : ($cn <= $courseProgress['practical']['classes_completed'] ? 'done'
+                                : ($cn == $courseProgress['practical']['classes_completed'] + 1 ? 'active' : 'pending'));
+                    @endphp
+                    <div class="class-row">
+                        <div class="class-num-cell">
+                            <span class="class-num-badge badge-{{ $st }}">{{ $cn }}</span>
+                        </div>
+                        <div class="class-body-cell">
+                            <div class="class-title-text">{{ $plan->title }}</div>
+                            <div class="class-meta-text">
+                                Practical #{{ $cn }}
+                                @if($student->course->practical_hours && $student->course->total_practical_classes)
+                                    &bull; {{ round($student->course->practical_hours / $student->course->total_practical_classes, 1) }}h/class
+                                @endif
+                                &bull;
+                                @if($st=='done') <span class="text-success">Done</span>
+                                @elseif($st=='active') <span class="text-primary">In Progress</span>
+                                @else Upcoming @endif
+                            </div>
+                        </div>
+                    </div>
+                @empty
+                    <div style="font-size:9px;color:#9ca3af;padding:8px 0;">No practical lesson plans configured.</div>
+                @endforelse
+            </div>
+        </div>
+    </div>
+    @endif
+
+    {{-- ========== SECTION 3: INSTRUCTOR ASSIGNMENT ========== --}}
+    <div class="section">
+        <div class="section-title"><span class="section-number">3</span> Instructor Assignment</div>
+        @if($student->instructor)
+            <table class="kv-table">
+                <tr><td>Instructor Name</td><td><strong>{{ $student->instructor->instructor_name }}</strong></td>
+                    <td>Email</td><td>{{ $student->instructor->email ?? '—' }}</td></tr>
+                <tr><td>Contact</td><td>{{ $student->instructor->contact ?? '—' }}</td>
+                    <td>License #</td><td>{{ $student->instructor->license_number ?? '—' }}</td></tr>
+                <tr><td>Assignment Date</td><td>{{ $student->joining_date ? \Carbon\Carbon::parse($student->joining_date)->format('M d, Y') : '—' }}</td>
+                    <td>Status</td><td><span class="pill {{ $student->instructor->is_active ? 'pill-success' : 'pill-danger' }}">{{ $student->instructor->is_active ? 'Active' : 'Inactive' }}</span></td></tr>
             </table>
-        </div>
-    @endif
-
-    <!-- Academic Progress -->
-    <div class="section">
-        <div class="section-header">Academic Progress</div>
-
-        @php
-            // Fix progress calculation issues
-            $theoryTotal = max(1, $courseProgress['theory']['total'] ?? 1);
-            $theoryCompleted = $courseProgress['theory']['completed'] ?? 0;
-            $theoryPercent = min(100, max(0, round(($theoryCompleted / $theoryTotal) * 100)));
-
-            $practicalTotal = max(1, $courseProgress['practical']['total'] ?? 1);
-            $practicalCompleted = $courseProgress['practical']['completed'] ?? 0;
-            $practicalPercent = min(100, max(0, round(($practicalCompleted / $practicalTotal) * 100)));
-        @endphp
-
-        <!-- Theory Progress -->
-        <div class="progress-item">
-            <div class="progress-header">
-                <div class="progress-title">Theory Progress</div>
-                <div class="progress-percent">{{ $theoryPercent }}%</div>
-            </div>
-            <div class="progress-bar-container">
-                <div class="progress-bar progress-theory" style="width: {{ $theoryPercent }}%">
-                    @if($theoryPercent > 15){{ $theoryPercent }}%@endif
-                </div>
-            </div>
-            <div class="progress-details">
-                <strong>Hours Completed:</strong> {{ $theoryCompleted }} of {{ $theoryTotal }} hours<br>
-                <strong>Status:</strong>
-                @php
-                    $theoryStatus = strtolower($student->theory_status ?? 'not_started');
-                    $theoryStatusMap = [
-                        'completed' => ['Completed', 'badge-success'],
-                        'in_progress' => ['In Progress', 'badge-primary'],
-                        'active' => ['Active', 'badge-primary'],
-                        'not_started' => ['Not Started', 'badge-secondary']
-                    ];
-                    $theoryDisplayStatus = $theoryStatusMap[$theoryStatus] ?? ['Not Started', 'badge-secondary'];
-                @endphp
-                <span class="badge {{ $theoryDisplayStatus[1] }}">{{ $theoryDisplayStatus[0] }}</span>
-                @if ($student->theory_completion_date)
-                    <span style="color: #718096;">(Completed: {{ date('M d, Y', strtotime($student->theory_completion_date)) }})</span>
-                @endif
-            </div>
-        </div>
-
-        <!-- Practical Progress -->
-        <div class="progress-item">
-            <div class="progress-header">
-                <div class="progress-title">Practical Progress</div>
-                <div class="progress-percent">{{ $practicalPercent }}%</div>
-            </div>
-            <div class="progress-bar-container">
-                <div class="progress-bar progress-practical" style="width: {{ $practicalPercent }}%">
-                    @if($practicalPercent > 15){{ $practicalPercent }}%@endif
-                </div>
-            </div>
-            <div class="progress-details">
-                <strong>Hours Completed:</strong> {{ $practicalCompleted }} of {{ $practicalTotal }} hours<br>
-                <strong>Status:</strong>
-                @php
-                    $practicalStatus = strtolower($student->practical_status ?? 'not_started');
-                    $practicalStatusMap = [
-                        'completed' => ['Completed', 'badge-success'],
-                        'in_progress' => ['In Progress', 'badge-primary'],
-                        'active' => ['Active', 'badge-primary'],
-                        'not_started' => ['Not Started', 'badge-secondary']
-                    ];
-                    $practicalDisplayStatus = $practicalStatusMap[$practicalStatus] ?? ['Not Started', 'badge-secondary'];
-                @endphp
-                <span class="badge {{ $practicalDisplayStatus[1] }}">{{ $practicalDisplayStatus[0] }}</span>
-                @if ($student->practical_completion_date)
-                    <span style="color: #718096;">(Completed: {{ date('M d, Y', strtotime($student->practical_completion_date)) }})</span>
-                @endif
-            </div>
-        </div>
-
-        <!-- Schedule if exists -->
-        @if ($student->practicalSchedule)
-            <div style="margin-top: 15px;">
-                <div style="font-size: 12px; font-weight: 600; color: #4a5568; margin-bottom: 8px;">Next Practical Session</div>
-                <div class="schedule-box">
-                    <div class="schedule-grid">
-                        <div class="schedule-item">
-                            <div class="schedule-label">Date</div>
-                            <div class="schedule-value">{{ date('l, M d, Y', strtotime($student->practicalSchedule->date)) }}</div>
-                        </div>
-                        <div class="schedule-item">
-                            <div class="schedule-label">Time</div>
-                            <div class="schedule-value">{{ date('h:i A', strtotime($student->practicalSchedule->start_time)) }} - {{ date('h:i A', strtotime($student->practicalSchedule->end_time)) }}</div>
-                        </div>
-                        <div class="schedule-item">
-                            <div class="schedule-label">Instructor</div>
-                            <div class="schedule-value">{{ $student->practicalSchedule->instructor->instructor_name ?? 'Not assigned' }}</div>
-                        </div>
-                        <div class="schedule-item">
-                            <div class="schedule-label">Session Type</div>
-                            <div class="schedule-value">{{ $student->practicalSchedule->session_type }}</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        @endif
-    </div>
-
-    <!-- Financial Overview -->
-    <div class="section">
-        <div class="section-header">Financial Overview</div>
-
-        @php
-            // Fix financial calculation issues
-            $totalBilled = max(0, $totalBilled ?? 0);
-            $totalPaid = max(0, $totalPaid ?? 0);
-            $pendingPayments = max(0, $pendingPayments ?? 0);
-
-            // If all amounts are 0, use course price as total billed
-            if ($totalBilled == 0 && isset($student->course->course_price)) {
-                $totalBilled = $student->course->course_price;
-                $pendingPayments = $totalBilled - $totalPaid;
-            }
-        @endphp
-
-        <div class="info-cards">
-            <div class="info-card blue">
-                <div class="info-card-label">Total Course Fee</div>
-                <div class="info-card-value">${{ number_format($totalBilled, 2) }}</div>
-            </div>
-            <div class="info-card green">
-                <div class="info-card-label">Amount Paid</div>
-                <div class="info-card-value">${{ number_format($totalPaid, 2) }}</div>
-            </div>
-            <div class="info-card orange">
-                <div class="info-card-label">Outstanding Balance</div>
-                <div class="info-card-value">${{ number_format($pendingPayments, 2) }}</div>
-            </div>
-        </div>
-
-        <!-- Invoice Details -->
-        <div style="font-size: 12px; font-weight: 600; color: #4a5568; margin-bottom: 10px;">Payment History</div>
-        @if (count($student->invoices ?? []) > 0)
-            @foreach ($student->invoices as $invoice)
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-title">
-                            Invoice #{{ $invoice->invoice_number }} - {{ date('M d, Y', strtotime($invoice->created_at)) }}
-                        </div>
-                        <span class="badge badge-{{ $invoice->status == 'paid' ? 'success' : 'warning' }}">
-                            {{ ucfirst($invoice->status) }}
-                        </span>
-                    </div>
-                    <div class="card-body">
-                        <div class="two-column mb-10">
-                            <div class="column">
-                                <p><strong>Amount:</strong> <span class="amount-display">${{ number_format($invoice->amount ?? 0, 2) }}</span></p>
-                                <p><strong>Course:</strong> {{ $invoice->course->course_name ?? 'Not specified' }}</p>
-                            </div>
-                        </div>
-
-                        @if (count($invoice->installments ?? []) > 0)
-                            <div style="font-size: 10px; font-weight: 600; margin: 10px 0 5px 0;">Installment Plan</div>
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Amount</th>
-                                        <th>Due Date</th>
-                                        <th>Status</th>
-                                        <th>Paid Date</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach ($invoice->installments as $installment)
-                                        <tr>
-                                            <td><span class="amount-display">${{ number_format($installment->amount ?? 0, 2) }}</span></td>
-                                            <td>{{ date('M d, Y', strtotime($installment->due_date)) }}</td>
-                                            <td>
-                                                <span class="badge badge-{{ $installment->status == 'paid' ? 'success' : ($installment->is_overdue ? 'danger' : 'warning') }}">
-                                                    {{ ucfirst($installment->status) }}
-                                                </span>
-                                            </td>
-                                            <td>{{ $installment->paid_at ? date('M d, Y', strtotime($installment->paid_at)) : 'Not paid' }}</td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        @endif
-
-                        @if (count($invoice->payments ?? []) > 0)
-                            <div style="font-size: 10px; font-weight: 600; margin: 10px 0 5px 0;">Payment Records</div>
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Amount</th>
-                                        <th>Method</th>
-                                        <th>Status</th>
-                                        <th>Date</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach ($invoice->payments as $payment)
-                                        <tr>
-                                            <td><span class="amount-display">${{ number_format($payment->amount ?? 0, 2) }}</span></td>
-                                            <td>{{ $payment->paymentMethod->name ?? 'Not specified' }}</td>
-                                            <td>
-                                                <span class="badge badge-{{ $payment->status == 'completed' ? 'success' : 'warning' }}">
-                                                    {{ ucfirst($payment->status) }}
-                                                </span>
-                                            </td>
-                                            <td>{{ date('M d, Y', strtotime($payment->created_at)) }}</td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        @endif
-                    </div>
-                </div>
-            @endforeach
         @else
-            <div class="callout">
-                <h5>Payment Information</h5>
-                <p>No payment records available. Please contact the office for payment details.</p>
+            <div style="font-size:9px;color:#9ca3af;padding:8px 0;">No instructor assigned.</div>
+        @endif
+    </div>
+
+    {{-- ========== SECTION 4: THEORY CLASSES FLOW ========== --}}
+    <div class="section">
+        <div class="section-title"><span class="section-number">4</span> Theory Classes Flow</div>
+
+        {{-- Progress --}}
+        <div class="prog-wrap">
+            <div class="prog-row">
+                <div class="prog-lbl">Theory Progress</div>
+                <div class="prog-pct">{{ $courseProgress['theory']['percentage'] }}%</div>
+            </div>
+            <div class="prog-bg"><div class="prog-fill fill-theory" style="width:{{ $courseProgress['theory']['percentage'] }}%;"></div></div>
+            <div class="prog-meta">
+                {{ $courseProgress['theory']['completed'] }}h of {{ $courseProgress['theory']['total'] }}h completed &bull;
+                {{ $courseProgress['theory']['classes_completed'] }}/{{ $courseProgress['theory']['classes_total'] }} classes done &bull;
+                Status:
+                @if($student->theory_status == 'completed') <strong class="text-success">Completed{{ $student->theory_completion_date ? ' on '.\Carbon\Carbon::parse($student->theory_completion_date)->format('M d, Y') : '' }}</strong>
+                @elseif($student->theory_status == 'in_progress') <strong class="text-primary">In Progress</strong>
+                @else Pending @endif
+            </div>
+        </div>
+
+        {{-- Schedule table --}}
+        @if($theorySchedules->isNotEmpty())
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th><th>Date</th><th>Day</th><th>Start</th><th>End</th><th>Duration</th><th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($theorySchedules as $idx => $sched)
+                        @php
+                            $sd = \Carbon\Carbon::parse($sched->date);
+                            $st = \Carbon\Carbon::parse($sched->start_time);
+                            $et = \Carbon\Carbon::parse($sched->end_time);
+                            $dur = round($et->diffInMinutes($st)/60, 1);
+                        @endphp
+                        <tr>
+                            <td>{{ $idx+1 }}</td>
+                            <td>{{ $sd->format('M d, Y') }}</td>
+                            <td>{{ $sd->format('D') }}</td>
+                            <td>{{ $st->format('h:i A') }}</td>
+                            <td>{{ $et->format('h:i A') }}</td>
+                            <td>{{ $dur }}h</td>
+                            <td>
+                                @if($student->theory_status == 'completed')
+                                    <span class="pill pill-success">Completed</span>
+                                @elseif($sd->isPast() && $idx < $courseProgress['theory']['classes_completed'])
+                                    <span class="pill pill-success">Done</span>
+                                @elseif($sd->isToday())
+                                    <span class="pill pill-info">Today</span>
+                                @elseif($sd->isPast())
+                                    <span class="pill pill-warning">Past</span>
+                                @else
+                                    <span class="pill pill-secondary">Upcoming</span>
+                                @endif
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        @else
+            <div style="font-size:9px;color:#9ca3af;padding:4px 0;">No theory schedules found.</div>
+        @endif
+
+        @if($student->theory_status == 'completed')
+            <div class="callout callout-success">
+                <div class="callout-title">&#10003; Theory Completed</div>
+                <div class="callout-text">All theory classes completed{{ $student->theory_completion_date ? ' on '.\Carbon\Carbon::parse($student->theory_completion_date)->format('M d, Y') : '' }}.</div>
             </div>
         @endif
     </div>
 
-    <!-- Performance Reports -->
-    @if (count($progressReports ?? []) > 0)
-        <div class="section">
-            <div class="section-header">Instructor Reports</div>
-            @foreach ($progressReports as $report)
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-title">
-                            Report - {{ date('M d, Y', strtotime($report->created_at)) }}
-                        </div>
-                        @if ($report->rating)
-                            <span class="badge badge-primary">{{ $report->rating }}/5 Stars</span>
-                        @endif
-                    </div>
-                    <div class="card-body">
-                        <div class="two-column mb-10">
-                            <div class="column">
-                                <p><strong>Instructor:</strong> {{ $report->instructor->instructor_name ?? 'Not specified' }}</p>
-                            </div>
-                            <div class="column">
-                                <p><strong>Course:</strong> {{ $report->course->course_name ?? 'Not specified' }}</p>
-                            </div>
-                        </div>
+    {{-- ========== SECTION 5: PRACTICAL FLOW ========== --}}
+    <div class="section">
+        <div class="section-title"><span class="section-number">5</span> Practical Assignment & Flow</div>
 
-                        @if ($report->performance_notes)
-                            <div class="callout">
-                                <h5>Performance Notes</h5>
-                                <p>{{ $report->performance_notes }}</p>
-                            </div>
-                        @endif
+        <div class="prog-wrap">
+            <div class="prog-row">
+                <div class="prog-lbl">Practical Progress</div>
+                <div class="prog-pct">{{ $courseProgress['practical']['percentage'] }}%</div>
+            </div>
+            <div class="prog-bg"><div class="prog-fill fill-practical" style="width:{{ $courseProgress['practical']['percentage'] }}%;"></div></div>
+            <div class="prog-meta">
+                {{ $courseProgress['practical']['completed'] }}h of {{ $courseProgress['practical']['total'] }}h completed &bull;
+                Status: <strong>{{ ucfirst(str_replace('_',' ',$student->practical_status)) }}</strong>
+                @if($student->practical_completion_date)
+                    &bull; <strong class="text-success">Completed {{ \Carbon\Carbon::parse($student->practical_completion_date)->format('M d, Y') }}</strong>
+                @endif
+            </div>
+        </div>
 
-                        @if ($report->areas_of_improvement)
-                            <div class="callout callout-warning">
-                                <h5>Areas for Improvement</h5>
-                                <p>{{ $report->areas_of_improvement }}</p>
-                            </div>
-                        @endif
+        @if($student->practicalSchedule)
+            @php $slot = $student->practicalSchedule; @endphp
+            <div class="slot-box mb-8">
+                <div style="font-size:9px;font-weight:700;color:#065f46;margin-bottom:8px;">Assigned Practical Slot</div>
+                <div class="slot-grid">
+                    <div class="slot-cell">
+                        <div class="slot-lbl">Date</div>
+                        <div class="slot-val">{{ \Carbon\Carbon::parse($slot->date)->format('M d, Y') }}</div>
                     </div>
+                    <div class="slot-cell">
+                        <div class="slot-lbl">Time</div>
+                        <div class="slot-val">{{ \Carbon\Carbon::parse($slot->start_time)->format('h:i A') }} — {{ \Carbon\Carbon::parse($slot->end_time)->format('h:i A') }}</div>
+                    </div>
+                    <div class="slot-cell">
+                        <div class="slot-lbl">Duration</div>
+                        <div class="slot-val">{{ $practicalDuration }}h ({{ $practicalDuration * 60 }} min)</div>
+                    </div>
+                    <div class="slot-cell" style="padding-top:8px;">
+                        <div class="slot-lbl">Instructor</div>
+                        <div class="slot-val">{{ $slot->instructor->instructor_name ?? '—' }}</div>
+                    </div>
+                    <div class="slot-cell" style="padding-top:8px;">
+                        <div class="slot-lbl">Day</div>
+                        <div class="slot-val">{{ \Carbon\Carbon::parse($slot->date)->format('l') }}</div>
+                    </div>
+                    <div class="slot-cell" style="padding-top:8px;">
+                        <div class="slot-lbl">Session Status</div>
+                        <div class="slot-val">
+                            @php $ps3 = ['pending'=>'pill-warning','assigned'=>'pill-primary','completed'=>'pill-success','failed'=>'pill-danger','not_appeared'=>'pill-warning'][$student->practical_status] ?? 'pill-secondary'; @endphp
+                            <span class="pill {{ $ps3 }}">{{ ucfirst(str_replace('_',' ',$student->practical_status)) }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @else
+            <div style="font-size:9px;color:#9ca3af;padding:6px 0;">
+                No practical slot assigned.
+                @if($student->theory_status !== 'completed')
+                    Theory classes must be completed before practical assignment.
+                @endif
+            </div>
+        @endif
+
+        @if($student->practical_status == 'failed')
+            <div class="callout callout-warning"><div class="callout-title">Practical Not Passed</div><div class="callout-text">Student did not pass the practical session. Re-scheduling may be required.</div></div>
+        @elseif($student->practical_status == 'not_appeared')
+            <div class="callout callout-warning"><div class="callout-title">Did Not Appear</div><div class="callout-text">Student did not appear for the scheduled practical session.</div></div>
+        @endif
+    </div>
+
+    {{-- ========== SECTION 6: FEEDBACK ========== --}}
+    @if($feedbackResponses->isNotEmpty() || $progressReports->isNotEmpty())
+    <div class="section">
+        <div class="section-title"><span class="section-number">6</span> Feedback Recording</div>
+
+        @if($feedbackResponses->isNotEmpty())
+            <div style="font-size:9px;font-weight:700;color:#374151;margin-bottom:6px;">Class Feedback Responses</div>
+            @foreach($feedbackResponses as $classOrder => $responses)
+                <div class="fb-block">
+                    <div class="fb-header">Class #{{ $classOrder }} ({{ $responses->count() }} responses)</div>
+                    @foreach($responses as $resp)
+                        <div class="fb-item">
+                            <div class="fb-q-cell">
+                                {{ $resp->question->question_text ?? 'Question' }}
+                                @if($resp->comments) <div style="font-size:8px;color:#9ca3af;font-style:italic;">"{{ $resp->comments }}"</div> @endif
+                            </div>
+                            <div class="fb-r-cell {{ $resp->response ? 'fb-yes' : 'fb-no' }}">
+                                {{ $resp->response ? 'Yes' : 'No' }}
+                            </div>
+                        </div>
+                    @endforeach
                 </div>
             @endforeach
-        </div>
+        @endif
+
+        @if($progressReports->isNotEmpty())
+            <div style="font-size:9px;font-weight:700;color:#374151;margin:10px 0 6px;">Instructor Progress Reports</div>
+            @foreach($progressReports as $report)
+                <div class="callout mb-8">
+                    <div class="callout-title" style="display:table;width:100%;">
+                        <span style="display:table-cell;">Report — {{ $report->created_at->format('M d, Y') }} ({{ $report->instructor->instructor_name ?? '—' }})</span>
+                        @if($report->rating)<span style="display:table-cell;text-align:right;"><span class="pill pill-primary">{{ $report->rating }}/5 stars</span></span>@endif
+                    </div>
+                    @if($report->performance_notes)
+                        <div class="callout-text"><strong>Performance:</strong> {{ $report->performance_notes }}</div>
+                    @endif
+                    @if($report->areas_of_improvement)
+                        <div class="callout-text" style="margin-top:3px;"><strong>Improvements:</strong> {{ $report->areas_of_improvement }}</div>
+                    @endif
+                </div>
+            @endforeach
+        @endif
+    </div>
     @endif
 
-    <!-- Summary -->
+    {{-- ========== SECTION 7: WORKING HOURS ========== --}}
     <div class="section">
-        <div class="section-header">Summary</div>
-        <div class="two-column">
-            <div class="column">
-                <div class="callout callout-success">
-                    <h5>Academic Progress</h5>
-                    <p><strong>Theory:</strong> {{ $theoryPercent }}% complete ({{ $theoryCompleted }}/{{ $theoryTotal }} hours)</p>
-                    <p><strong>Practical:</strong> {{ $practicalPercent }}% complete ({{ $practicalCompleted }}/{{ $practicalTotal }} hours)</p>
-                    <p><strong>Overall:</strong> {{ $theoryDisplayStatus[0] ?? 'Not Started' }}</p>
-                </div>
-            </div>
-            <div class="column">
-                <div class="callout">
-                    <h5>Financial Status</h5>
-                    <p><strong>Course Fee:</strong> ${{ number_format($totalBilled, 2) }}</p>
-                    <p><strong>Amount Paid:</strong> ${{ number_format($totalPaid, 2) }}</p>
-                    <p><strong>Balance Due:</strong> ${{ number_format($pendingPayments, 2) }}</p>
-                    <p><strong>Status:</strong> {{ $pendingPayments <= 0 ? 'Fully Paid' : 'Payment Due' }}</p>
-                </div>
-            </div>
-        </div>
+        <div class="section-title"><span class="section-number">7</span> Working Hour Tracking</div>
 
-        @if ($student->instructor)
-            <div class="callout mt-15">
-                <h5>Contact Information</h5>
-                <p><strong>Primary Instructor:</strong> {{ $student->instructor->instructor_name }}</p>
-                <p><strong>School Contact:</strong> info@prodrive.com | (555) 123-4567</p>
-                <p>For questions about progress or scheduling, please contact your instructor or our office.</p>
+        <table class="kv-table mb-8">
+            <tr>
+                <td>Theory Hours Logged</td><td><strong>{{ $courseProgress['theory']['completed'] }}h</strong> / {{ $courseProgress['theory']['total'] }}h required</td>
+                <td>Practical Hours Logged</td><td><strong>{{ $courseProgress['practical']['completed'] }}h</strong> / {{ $courseProgress['practical']['total'] }}h required</td>
+            </tr>
+            <tr>
+                <td>Total Hours Done</td><td><strong>{{ $courseProgress['theory']['completed'] + $courseProgress['practical']['completed'] }}h</strong></td>
+                <td>Hours Remaining</td><td>
+                    @php $rem = max(0, ($courseProgress['theory']['total'] - $courseProgress['theory']['completed']) + ($courseProgress['practical']['total'] - $courseProgress['practical']['completed'])); @endphp
+                    {{ $rem }}h
+                </td>
+            </tr>
+        </table>
+
+        @if($courseHoursLog->isNotEmpty())
+            <div class="two-col">
+                <div class="col-l">
+                    <div style="font-size:9px;font-weight:700;color:#374151;margin-bottom:5px;">Theory Sessions ({{ $theoryHoursLog->sum('hours') }}h total)</div>
+                    @forelse($theoryHoursLog as $e)
+                        <div class="hour-row">
+                            <div class="hour-date">{{ \Carbon\Carbon::parse($e->date)->format('M d, Y') }}</div>
+                            <div class="hour-type" style="color:#3b82f6;">Theory</div>
+                            <div class="hour-val" style="color:#3b82f6;">{{ $e->hours }}h</div>
+                        </div>
+                    @empty
+                        <div style="font-size:9px;color:#9ca3af;padding:4px 0;">No theory hours logged.</div>
+                    @endforelse
+                </div>
+                <div class="col-r">
+                    <div style="font-size:9px;font-weight:700;color:#374151;margin-bottom:5px;">Practical Sessions ({{ $practicalHoursLog->sum('hours') }}h total)</div>
+                    @forelse($practicalHoursLog as $e)
+                        <div class="hour-row">
+                            <div class="hour-date">{{ \Carbon\Carbon::parse($e->date)->format('M d, Y') }}</div>
+                            <div class="hour-type" style="color:#10b981;">Practical</div>
+                            <div class="hour-val" style="color:#10b981;">{{ $e->hours }}h</div>
+                        </div>
+                    @empty
+                        <div style="font-size:9px;color:#9ca3af;padding:4px 0;">No practical hours logged.</div>
+                    @endforelse
+                </div>
+            </div>
+        @else
+            <div style="font-size:9px;color:#9ca3af;padding:4px 0;">
+                No session log entries. Summary from student record — Theory: {{ $courseProgress['theory']['completed'] }}h, Practical: {{ $courseProgress['practical']['completed'] }}h
             </div>
         @endif
     </div>
 
-    <!-- Footer -->
-    <div class="footer">
-        <div><strong>© {{ date('Y') }} Prodrive Driving School</strong> | Professional Driver Education</div>
-        <div>Email: info@prodrive.com | Phone: (555) 123-4567 | Website: www.prodrive.com</div>
-        <div>This report was automatically generated from our student management system.</div>
+    {{-- ========== SECTION 8: PAYMENT FLOW ========== --}}
+    <div class="section">
+        <div class="section-title"><span class="section-number">8</span> Payment Flow</div>
+
+        <table class="kv-table mb-8">
+            <tr>
+                <td>Total Billed</td><td><strong>${{ number_format($totalBilled, 2) }}</strong></td>
+                <td>Amount Paid</td><td><strong class="text-success">${{ number_format($totalPaid, 2) }}</strong></td>
+            </tr>
+            <tr>
+                <td>Balance Due</td><td><strong class="text-danger">${{ number_format($pendingPayments, 2) }}</strong></td>
+                <td>Payment Status</td><td>
+                    @php $payMap2 = ['0'=>['Unpaid','pill-danger'],'1'=>['Pending','pill-warning'],'2'=>['Failed','pill-danger'],'3'=>['Paid','pill-success'],'paid'=>['Paid','pill-success'],'partial'=>['Partial','pill-warning'],'pending'=>['Pending','pill-warning']]; $ps2 = $payMap2[(string)$student->payment_status] ?? ['—','pill-secondary']; @endphp
+                    <span class="pill {{ $ps2[1] }}">{{ $ps2[0] }}</span>
+                </td>
+            </tr>
+        </table>
+
+        @forelse($student->invoices as $invoice)
+            <div class="invoice-box">
+                <div class="invoice-hdr">
+                    <div class="invoice-title-cell">Invoice #{{ $invoice->invoice_number }} — {{ $invoice->created_at->format('M d, Y') }}</div>
+                    <div class="invoice-amount-cell">
+                        <strong>${{ number_format($invoice->amount, 2) }}</strong>
+                        &nbsp;<span class="pill {{ $invoice->status == 'paid' ? 'pill-success' : 'pill-warning' }}">{{ ucfirst($invoice->status) }}</span>
+                    </div>
+                </div>
+                <div class="invoice-body">
+                    @if($invoice->payments->isNotEmpty())
+                        <div style="font-size:8px;font-weight:700;text-transform:uppercase;color:#6b7280;margin-bottom:5px;">Payment Records</div>
+                        <table>
+                            <thead><tr><th>Amount</th><th>Method</th><th>Status</th><th>Date</th></tr></thead>
+                            <tbody>
+                                @foreach($invoice->payments as $pay)
+                                    <tr>
+                                        <td>${{ number_format($pay->amount, 2) }}</td>
+                                        <td>{{ $pay->paymentMethod->name ?? '—' }}</td>
+                                        <td><span class="pill {{ $pay->status == 'completed' ? 'pill-success' : 'pill-warning' }}">{{ ucfirst($pay->status) }}</span></td>
+                                        <td>{{ $pay->created_at->format('M d, Y') }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    @endif
+                    @if($invoice->installments->isNotEmpty())
+                        <div style="font-size:8px;font-weight:700;text-transform:uppercase;color:#6b7280;margin:8px 0 5px;">Installment Plan</div>
+                        <table>
+                            <thead><tr><th>#</th><th>Amount</th><th>Due Date</th><th>Status</th><th>Paid Date</th></tr></thead>
+                            <tbody>
+                                @foreach($invoice->installments as $idx => $inst)
+                                    @php $ip = $inst->status=='paid'?'pill-success':($inst->is_overdue?'pill-danger':'pill-warning'); @endphp
+                                    <tr>
+                                        <td>{{ $idx+1 }}</td>
+                                        <td>${{ number_format($inst->amount, 2) }}</td>
+                                        <td>{{ \Carbon\Carbon::parse($inst->due_date)->format('M d, Y') }}</td>
+                                        <td><span class="pill {{ $ip }}">{{ $inst->status=='paid'?'Paid':($inst->is_overdue?'Overdue':ucfirst($inst->status)) }}</span></td>
+                                        <td>{{ $inst->paid_at ? \Carbon\Carbon::parse($inst->paid_at)->format('M d, Y') : '—' }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    @endif
+                </div>
+            </div>
+        @empty
+            <div style="font-size:9px;color:#9ca3af;padding:4px 0;">No payment records found.</div>
+        @endforelse
     </div>
+
+    {{-- ========== SECTION 9: COURSE COMPLETION ========== --}}
+    <div class="section">
+        <div class="section-title"><span class="section-number">9</span> Course Completion</div>
+
+        {{-- Overall progress --}}
+        <div class="prog-wrap">
+            <div class="prog-row"><div class="prog-lbl">Theory</div><div class="prog-pct">{{ $courseProgress['theory']['percentage'] }}%</div></div>
+            <div class="prog-bg"><div class="prog-fill fill-theory" style="width:{{ $courseProgress['theory']['percentage'] }}%;"></div></div>
+            <div class="prog-row"><div class="prog-lbl">Practical</div><div class="prog-pct">{{ $courseProgress['practical']['percentage'] }}%</div></div>
+            <div class="prog-bg"><div class="prog-fill fill-practical" style="width:{{ $courseProgress['practical']['percentage'] }}%;"></div></div>
+            @php $op = round(($courseProgress['theory']['percentage'] + $courseProgress['practical']['percentage']) / 2); @endphp
+            <div class="prog-row"><div class="prog-lbl">Overall</div><div class="prog-pct">{{ $op }}%</div></div>
+            <div class="prog-bg"><div class="prog-fill fill-overall" style="width:{{ $op }}%;"></div></div>
+        </div>
+
+        {{-- Milestones --}}
+        <div class="step-row">
+            <div class="step-dot-cell"><div class="step-dot done">&#10003;</div></div>
+            <div class="step-body-cell">
+                <div class="step-title">Student Enrolled</div>
+                <div class="step-desc">{{ $student->joining_date ? \Carbon\Carbon::parse($student->joining_date)->format('M d, Y') : '—' }}</div>
+            </div>
+        </div>
+        <div class="step-row">
+            <div class="step-dot-cell"><div class="step-dot {{ $student->instructor ? 'done' : 'pending' }}">{{ $student->instructor ? '&#10003;' : '&#8212;' }}</div></div>
+            <div class="step-body-cell">
+                <div class="step-title">Instructor Assigned</div>
+                <div class="step-desc">{{ $student->instructor ? $student->instructor->instructor_name : 'Not assigned' }}</div>
+            </div>
+        </div>
+        <div class="step-row">
+            @php $ts = $student->theory_status=='completed'?'done':($student->theory_status=='in_progress'?'active':'pending'); @endphp
+            <div class="step-dot-cell"><div class="step-dot {{ $ts }}">{{ $ts=='done'?'&#10003;':($ts=='active'?'&#9654;':'&#8212;') }}</div></div>
+            <div class="step-body-cell">
+                <div class="step-title">Theory Classes</div>
+                <div class="step-desc">{{ $courseProgress['theory']['percentage'] }}% complete ({{ $courseProgress['theory']['completed'] }}/{{ $courseProgress['theory']['total'] }}h)
+                    @if($student->theory_status=='completed') &bull; <strong class="text-success">Completed {{ $student->theory_completion_date ? \Carbon\Carbon::parse($student->theory_completion_date)->format('M d, Y') : '' }}</strong> @endif
+                </div>
+            </div>
+        </div>
+        <div class="step-row">
+            @php $ps = $student->practical_status=='completed'?'done':($student->practical_status=='assigned'?'active':'pending'); @endphp
+            <div class="step-dot-cell"><div class="step-dot {{ $ps }}">{{ $ps=='done'?'&#10003;':($ps=='active'?'&#9654;':'&#8212;') }}</div></div>
+            <div class="step-body-cell">
+                <div class="step-title">Practical Session</div>
+                <div class="step-desc">{{ ucfirst(str_replace('_',' ',$student->practical_status)) }}
+                    @if($student->practical_completion_date) &bull; <strong class="text-success">Completed {{ \Carbon\Carbon::parse($student->practical_completion_date)->format('M d, Y') }}</strong> @endif
+                </div>
+            </div>
+        </div>
+        <div class="step-row">
+            @php $cst = $student->course_status=='2'?'done':($student->course_status=='1'?'active':'pending'); @endphp
+            <div class="step-dot-cell"><div class="step-dot {{ $cst }}">{{ $cst=='done'?'&#10003;':($cst=='active'?'&#9654;':'&#8212;') }}</div></div>
+            <div class="step-body-cell">
+                <div class="step-title">Course Completion</div>
+                <div class="step-desc">
+                    @if($student->course_status=='2') <strong class="text-success">Completed{{ $student->completion_date ? ' '.\Carbon\Carbon::parse($student->completion_date)->format('M d, Y') : '' }}</strong>
+                    @elseif($student->course_status=='1') In Progress
+                    @else Not started @endif
+                </div>
+            </div>
+        </div>
+        <div class="step-row">
+            <div class="step-dot-cell"><div class="step-dot {{ $certificate ? 'done' : 'pending' }}">{{ $certificate ? '&#10003;' : '&#8212;' }}</div></div>
+            <div class="step-body-cell">
+                <div class="step-title">Certificate</div>
+                <div class="step-desc">
+                    @if($certificate) <strong class="text-success">Issued {{ \Carbon\Carbon::parse($certificate->issue_date)->format('M d, Y') }}</strong> &bull; #{{ $certificate->certificate_number }}
+                    @else Not yet issued @endif
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- ========== FOOTER ========== --}}
+    <div class="footer">
+        <strong>&copy; {{ date('Y') }} Prodrive Driving School</strong> &bull; Professional Driver Education<br>
+        This report was automatically generated from the student management system on {{ date('M d, Y h:i A') }}.<br>
+        Student: {{ $student->first_name }} {{ $student->last_name }} (ID #{{ $student->id }}) &bull; Report: SR-{{ $student->id }}-{{ date('Ymd') }}
+    </div>
+
+</div>
 </body>
 </html>

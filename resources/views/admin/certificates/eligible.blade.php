@@ -4,11 +4,13 @@
 
 @section('content')
 <div class="container-fluid">
-    <!-- Page Heading -->
-    <div class="d-sm-flex align-items-center justify-content-between mb-4">
-        <h1 class="h3 mb-0 text-gray-800">Eligible Students for Certificates</h1>
-        <a href="{{ route('admin.certificates.index') }}" class="d-none d-sm-inline-block btn btn-secondary shadow-sm">
-            <i class="fas fa-arrow-left fa-sm text-white-50"></i> Back to Certificates
+    <div class="pd-page-header d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <h4 class="mb-1" style="font-weight:800;"><i class="fas fa-certificate mr-2"></i>Eligible Students</h4>
+            <p style="font-size:.85rem;">Students who have completed their course and are eligible for certification</p>
+        </div>
+        <a href="{{ route('admin.certificates.index') }}" class="btn btn-light btn-sm font-weight-bold">
+            <i class="fas fa-arrow-left mr-1"></i>Back to Certificates
         </a>
     </div>
 

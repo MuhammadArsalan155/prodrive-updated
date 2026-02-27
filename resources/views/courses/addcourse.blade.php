@@ -2,12 +2,13 @@
 
 @section('content')
     <div class="container-fluid">
-        <div class="d-sm-flex align-items-center justify-content-between mb-4">
-            <h1 class="h3 mb-0 text-gray-800">
-                <i class="fas fa-graduation-cap text-primary mr-2"></i>Add New Course
-            </h1>
-            <a href="{{ route('viewcourse') }}" class="btn btn-outline-primary btn-sm">
-                <i class="fas fa-eye mr-1"></i> View Courses
+        <div class="pd-page-header d-flex align-items-center justify-content-between mb-4">
+            <div>
+                <h4 class="mb-1" style="font-weight:800;"><i class="fas fa-book mr-2"></i>Add New Course</h4>
+                <p style="font-size:.85rem;">Create a new driving course with theory and practical structure</p>
+            </div>
+            <a href="{{ route('viewcourse') }}" class="btn btn-light btn-sm font-weight-bold">
+                <i class="fas fa-list mr-1"></i>View Courses
             </a>
         </div>
 
