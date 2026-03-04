@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Course;
 use App\Models\CourseSchedule;
+use App\Models\PracticalSession;
 use App\Models\Student;
 use App\Models\ClassFeedback;
 use Carbon\Carbon;
@@ -271,58 +272,121 @@ class DashboardController extends Controller
     }
 
     /**
-     * Assign student to practical slot
+     * Assign multiple practical sessions for a student (2 hrs each).
+     * Input: student_id, total_hours, sessions[] => [{date, start_time}]
      */
-    public function assignPracticalSlot(Request $request)
+    public function assignPracticalSessions(Request $request)
     {
-        $scheduleId = $request->input('schedule_id');
-        $studentId = $request->input('student_id');
-
-        // Check if the slot is already filled
-        $schedule = CourseSchedule::findOrFail($scheduleId);
-
-        if ($schedule->students()->count() > 0) {
-            return redirect()->back()->with('error', 'This slot already has a student assigned');
-        }
-
-        // Assign student to slot
-        $schedule->students()->sync([$studentId]);
-
-        // Update student status
-        Student::findOrFail($studentId)->update([
-            'practical_status' => 'assigned',
-            'practical_schedule_id' => $scheduleId,
+        $request->validate([
+            'student_id'             => 'required|exists:students,id',
+            'total_hours'            => 'required|numeric|min:2',
+            'sessions'               => 'required|array|min:1',
+            'sessions.*.date'        => 'required|date',
+            'sessions.*.start_time'  => 'required|date_format:H:i',
         ]);
 
-        return redirect()->back()->with('success', 'Student assigned to practical slot');
+        $instructor  = Auth::guard('instructor')->user();
+        $student     = Student::findOrFail($request->student_id);
+        $sessionData = $request->sessions;
+
+        // Delete any previously scheduled (but not yet completed) sessions for clean re-assignment
+        PracticalSession::where('student_id', $student->id)
+            ->where('status', 'scheduled')
+            ->delete();
+
+        foreach ($sessionData as $index => $sess) {
+            $startTime = Carbon::parse($sess['start_time']);
+            $endTime   = $startTime->copy()->addHours(2);
+
+            PracticalSession::create([
+                'student_id'     => $student->id,
+                'instructor_id'  => $instructor->id,
+                'course_id'      => $student->course_id,
+                'session_number' => $index + 1,
+                'date'           => $sess['date'],
+                'start_time'     => $startTime->format('H:i:s'),
+                'end_time'       => $endTime->format('H:i:s'),
+                'duration_hours' => 2.0,
+                'status'         => 'scheduled',
+            ]);
+        }
+
+        $student->update(['practical_status' => 'assigned']);
+
+        return redirect()->back()->with('success', count($sessionData) . ' practical session(s) assigned successfully.');
     }
 
     /**
-     * Submit practical class feedback
+     * Submit feedback for an individual practical session.
+     */
+    public function submitSessionFeedback(Request $request, PracticalSession $session)
+    {
+        $request->validate([
+            'status'           => 'required|in:completed,failed,not_appeared,cancelled',
+            'instructor_notes' => 'nullable|string|max:2000',
+        ]);
+
+        $instructor = Auth::guard('instructor')->user();
+
+        // Verify session belongs to this instructor's student
+        if ($session->instructor_id !== $instructor->id) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $session->update([
+            'status'           => $request->status,
+            'instructor_notes' => $request->instructor_notes,
+            'completed_at'     => in_array($request->status, ['completed', 'failed', 'not_appeared'])
+                                    ? now() : null,
+        ]);
+
+        // Update hours_practical on student from total completed sessions
+        $student = $session->student;
+        $completedHours = PracticalSession::where('student_id', $student->id)
+            ->where('status', 'completed')
+            ->sum('duration_hours');
+        $student->hours_practical = $completedHours;
+
+        // Check if all sessions are done (completed/failed/not_appeared/cancelled)
+        $allSessions   = PracticalSession::where('student_id', $student->id)->get();
+        $doneSessions  = $allSessions->whereIn('status', ['completed', 'failed', 'not_appeared', 'cancelled']);
+        $allDone       = $allSessions->count() > 0 && $allSessions->count() === $doneSessions->count();
+        $anyCompleted  = $allSessions->where('status', 'completed')->count() > 0;
+
+        if ($allDone) {
+            // Determine overall practical outcome
+            $anyFailed      = $allSessions->where('status', 'failed')->count() > 0;
+            $anyNotAppeared = $allSessions->where('status', 'not_appeared')->count() > 0;
+
+            if ($anyCompleted) {
+                $student->practical_status           = 'completed';
+                $student->practical_completion_date  = now();
+            } elseif ($anyFailed) {
+                $student->practical_status = 'failed';
+            } else {
+                $student->practical_status = 'not_appeared';
+            }
+        }
+
+        $student->save();
+
+        return redirect()->back()->with('success', 'Session feedback saved.');
+    }
+
+    /**
+     * @deprecated – kept for backward-compat but new logic uses assignPracticalSessions().
+     */
+    public function assignPracticalSlot(Request $request)
+    {
+        return redirect()->back()->with('error', 'Please use the new practical session assignment form.');
+    }
+
+    /**
+     * @deprecated – kept for backward-compat; new flow uses submitSessionFeedback().
      */
     public function submitPracticalFeedback(Request $request)
     {
-        $studentId = $request->input('student_id');
-        $scheduleId = $request->input('schedule_id');
-        $status = $request->input('status'); // completed, failed, not_appeared
-        $feedback = $request->input('feedback');
-
-        // Update student status
-        Student::findOrFail($studentId)->update([
-            'practical_status' => $status,
-            'practical_completion_date' => $status == 'completed' ? now() : null,
-        ]);
-
-        // Save feedback
-        // ClassFeedback::create([
-        //     'student_id' => $studentId,
-        //     'schedule_id' => $scheduleId,
-        //     'instructor_id' => Auth::guard('instructor')->id(),
-        //     'feedback' => $feedback,
-        //     'status' => $status,
-        // ]);
-
-        return redirect()->back()->with('success', 'Practical class feedback submitted');
+        return redirect()->back()->with('error', 'Please use the per-session feedback form.');
     }
 
     /**
@@ -370,20 +434,20 @@ class DashboardController extends Controller
      */
     public function viewStudent(Student $student)
     {
-        // Check if the student belongs to the logged-in instructor
         $instructor = Auth::guard('instructor')->user();
 
         if ($student->instructor_id != $instructor->id) {
             abort(403, 'Unauthorized action.');
         }
 
-        // Get feedback history
-        //$feedbacks = ClassFeedback::where('student_id', $student->id)->orderBy('created_at', 'desc')->get();
+        $practicalSessions = PracticalSession::where('student_id', $student->id)
+            ->orderBy('session_number')
+            ->get();
 
         return view('instructor.student-view', [
-            'student' => $student,
-            'instructor' => $instructor,
-            //'feedbacks' => $feedbacks,
+            'student'           => $student,
+            'instructor'        => $instructor,
+            'practicalSessions' => $practicalSessions,
         ]);
     }
 }

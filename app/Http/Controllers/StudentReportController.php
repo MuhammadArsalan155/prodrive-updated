@@ -6,6 +6,7 @@ use App\Models\Certificate;
 use App\Models\Course;
 use App\Models\CourseSchedule;
 use App\Models\FeedbackResponse;
+use App\Models\PracticalSession;
 use App\Models\ProgressReport;
 use App\Models\Installment;
 use App\Models\Invoice;
@@ -91,7 +92,12 @@ class StudentReportController extends Controller
                 ->first();
         }
 
-        // Practical schedule duration in hours
+        // Practical sessions (new per-session model)
+        $practicalSessions = PracticalSession::where('student_id', $id)
+            ->orderBy('session_number')
+            ->get();
+
+        // Practical schedule duration in hours (legacy fallback)
         $practicalDuration = null;
         if ($student->practicalSchedule) {
             $start = Carbon::parse($student->practicalSchedule->start_time);
@@ -129,6 +135,7 @@ class StudentReportController extends Controller
             'feedbackResponses',
             'certificate',
             'practicalDuration',
+            'practicalSessions',
             'totalBilled',
             'totalPaid',
             'pendingPayments',
@@ -197,6 +204,10 @@ class StudentReportController extends Controller
                 ->first();
         }
 
+        $practicalSessions = PracticalSession::where('student_id', $id)
+            ->orderBy('session_number')
+            ->get();
+
         $practicalDuration = null;
         if ($student->practicalSchedule) {
             $start = Carbon::parse($student->practicalSchedule->start_time);
@@ -232,6 +243,7 @@ class StudentReportController extends Controller
             'feedbackResponses',
             'certificate',
             'practicalDuration',
+            'practicalSessions',
             'totalBilled',
             'totalPaid',
             'pendingPayments',

@@ -129,6 +129,11 @@ class Student extends Authenticatable
         return $this->roles()->where('name', $roleName)->exists();
     }
 
+    public function practicalSessions()
+    {
+        return $this->hasMany(PracticalSession::class)->orderBy('session_number');
+    }
+
     public function certificates()
     {
         return $this->hasMany(Certificate::class);

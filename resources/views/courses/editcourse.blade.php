@@ -151,21 +151,27 @@
                                         <div class="col-lg-6 col-md-6 col-sm-12 mb-3">
                                             <label for="total_theory_classes" class="form-label">
                                                 <i class="fas fa-calendar-alt text-primary mr-2"></i>Total Theory Classes
+                                                <span class="badge badge-info ml-1" style="font-size:.7rem;font-weight:600;">
+                                                    <i class="fas fa-magic mr-1"></i>Auto (hrs ÷ 5)
+                                                </span>
                                             </label>
                                             <div class="input-group">
                                                 <div class="input-group-prepend">
                                                     <span class="input-group-text"><i
                                                             class="fas fa-chalkboard-teacher"></i></span>
                                                 </div>
-                                                <input type="number" placeholder="Enter Total Theory Classes"
+                                                <input type="number"
                                                     name="total_theory_classes" id="total_theory_classes"
                                                     class="form-control @error('total_theory_classes') is-invalid @enderror"
                                                     value="{{ old('total_theory_classes', $course->total_theory_classes ?? 0) }}"
-                                                    min="0" max="1000">
+                                                    min="0" max="1000" readonly
+                                                    style="background:#f0f9ff;cursor:not-allowed;"
+                                                    title="Auto-calculated: 1 class = 5 theory hours">
                                                 @error('total_theory_classes')
                                                     <div class="invalid-feedback">{{ $message }}</div>
                                                 @enderror
                                             </div>
+                                            <small class="text-muted" id="theory_classes_hint" style="font-size:.78rem;"></small>
                                         </div>
                                     </div>
                                 </div>
@@ -197,23 +203,28 @@
                                         {{-- Total Practical Classes --}}
                                         <div class="col-lg-6 col-md-6 col-sm-12 mb-3">
                                             <label for="total_practical_classes" class="form-label">
-                                                <i class="fas fa-calendar-check text-primary mr-2"></i>Total Practical
-                                                Classes
+                                                <i class="fas fa-calendar-check text-primary mr-2"></i>Total Practical Classes
+                                                <span class="badge badge-info ml-1" style="font-size:.7rem;font-weight:600;">
+                                                    <i class="fas fa-magic mr-1"></i>Auto (hrs ÷ 2)
+                                                </span>
                                             </label>
                                             <div class="input-group">
                                                 <div class="input-group-prepend">
                                                     <span class="input-group-text"><i
                                                             class="fas fa-hands-helping"></i></span>
                                                 </div>
-                                                <input type="number" placeholder="Enter Total Practical Classes"
+                                                <input type="number"
                                                     name="total_practical_classes" id="total_practical_classes"
                                                     class="form-control @error('total_practical_classes') is-invalid @enderror"
                                                     value="{{ old('total_practical_classes', $course->total_practical_classes ?? 0) }}"
-                                                    min="0" max="1000">
+                                                    min="0" max="1000" readonly
+                                                    style="background:#f0f9ff;cursor:not-allowed;"
+                                                    title="Auto-calculated: 1 class = 2 practical hours">
                                                 @error('total_practical_classes')
                                                     <div class="invalid-feedback">{{ $message }}</div>
                                                 @enderror
                                             </div>
+                                            <small class="text-muted" id="practical_classes_hint" style="font-size:.78rem;"></small>
                                         </div>
                                     </div>
                                 </div>
@@ -669,6 +680,49 @@
                 }, 0);
             }
 
+            // ── Auto-calculate class counts from hours ─────────────────────────
+            const theoryHint    = document.getElementById('theory_classes_hint');
+            const practicalHint = document.getElementById('practical_classes_hint');
+
+            function calcTheoryClasses() {
+                const hrs = parseFloat(theoryHoursInput.value) || 0;
+                const classes = hrs > 0 ? Math.floor(hrs / 5) : 0;
+                totalTheoryClassesInput.value = classes;
+                theoryHint.textContent = hrs > 0
+                    ? `${hrs} hrs ÷ 5 = ${classes} class${classes !== 1 ? 'es' : ''}`
+                    : '';
+                renderLessonPlanSelections();
+            }
+
+            function calcPracticalClasses() {
+                const hrs = parseFloat(practicalHoursInput.value) || 0;
+                const classes = hrs > 0 ? Math.floor(hrs / 2) : 0;
+                totalPracticalClassesInput.value = classes;
+                practicalHint.textContent = hrs > 0
+                    ? `${hrs} hrs ÷ 2 = ${classes} class${classes !== 1 ? 'es' : ''}`
+                    : '';
+                renderLessonPlanSelections();
+            }
+
+            // Show hints for pre-loaded values on page load
+            function initHints() {
+                const tHrs = parseFloat(theoryHoursInput.value) || 0;
+                const pHrs = parseFloat(practicalHoursInput.value) || 0;
+                if (tHrs > 0 && theoryHint) {
+                    const c = Math.floor(tHrs / 5);
+                    theoryHint.textContent = `${tHrs} hrs ÷ 5 = ${c} class${c !== 1 ? 'es' : ''}`;
+                }
+                if (pHrs > 0 && practicalHint) {
+                    const c = Math.floor(pHrs / 2);
+                    practicalHint.textContent = `${pHrs} hrs ÷ 2 = ${c} class${c !== 1 ? 'es' : ''}`;
+                }
+            }
+
+            theoryHoursInput.addEventListener('input',  calcTheoryClasses);
+            theoryHoursInput.addEventListener('change', calcTheoryClasses);
+            practicalHoursInput.addEventListener('input',  calcPracticalClasses);
+            practicalHoursInput.addEventListener('change', calcPracticalClasses);
+
             // Event listeners
             courseTypeSelect.addEventListener('change', toggleFieldVisibility);
 
@@ -678,6 +732,7 @@
 
             // Initialize on page load
             toggleFieldVisibility();
+            initHints();
 
             // Form validation before submit
             editCourseForm.addEventListener('submit', function(e) {

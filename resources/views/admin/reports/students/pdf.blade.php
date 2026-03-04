@@ -476,43 +476,56 @@
             </div>
         </div>
 
-        @if($student->practicalSchedule)
-            @php $slot = $student->practicalSchedule; @endphp
-            <div class="slot-box mb-8">
-                <div style="font-size:9px;font-weight:700;color:#065f46;margin-bottom:8px;">Assigned Practical Slot</div>
-                <div class="slot-grid">
-                    <div class="slot-cell">
-                        <div class="slot-lbl">Date</div>
-                        <div class="slot-val">{{ \Carbon\Carbon::parse($slot->date)->format('M d, Y') }}</div>
-                    </div>
-                    <div class="slot-cell">
-                        <div class="slot-lbl">Time</div>
-                        <div class="slot-val">{{ \Carbon\Carbon::parse($slot->start_time)->format('h:i A') }} — {{ \Carbon\Carbon::parse($slot->end_time)->format('h:i A') }}</div>
-                    </div>
-                    <div class="slot-cell">
-                        <div class="slot-lbl">Duration</div>
-                        <div class="slot-val">{{ $practicalDuration }}h ({{ $practicalDuration * 60 }} min)</div>
-                    </div>
-                    <div class="slot-cell" style="padding-top:8px;">
-                        <div class="slot-lbl">Instructor</div>
-                        <div class="slot-val">{{ $slot->instructor->instructor_name ?? '—' }}</div>
-                    </div>
-                    <div class="slot-cell" style="padding-top:8px;">
-                        <div class="slot-lbl">Day</div>
-                        <div class="slot-val">{{ \Carbon\Carbon::parse($slot->date)->format('l') }}</div>
-                    </div>
-                    <div class="slot-cell" style="padding-top:8px;">
-                        <div class="slot-lbl">Session Status</div>
-                        <div class="slot-val">
-                            @php $ps3 = ['pending'=>'pill-warning','assigned'=>'pill-primary','completed'=>'pill-success','failed'=>'pill-danger','not_appeared'=>'pill-warning'][$student->practical_status] ?? 'pill-secondary'; @endphp
-                            <span class="pill {{ $ps3 }}">{{ ucfirst(str_replace('_',' ',$student->practical_status)) }}</span>
-                        </div>
-                    </div>
-                </div>
+        @if(isset($practicalSessions) && $practicalSessions->count() > 0)
+            @php
+                $psDone  = $practicalSessions->where('status','completed')->count();
+                $psTotal = $practicalSessions->count();
+                $psHours = $practicalSessions->where('status','completed')->sum('duration_hours');
+            @endphp
+            <div style="font-size:9px;color:#374151;margin-bottom:6px;">
+                <strong>{{ $psTotal }}</strong> session(s) planned &bull;
+                <strong>{{ $psDone }}</strong> completed &bull;
+                <strong>{{ $psHours }}h</strong> done
             </div>
+            <table style="width:100%;border-collapse:collapse;font-size:8.5px;margin-bottom:8px;">
+                <thead>
+                    <tr style="background:#1a2e4a;color:#fff;">
+                        <th style="padding:4px 6px;text-align:left;">#</th>
+                        <th style="padding:4px 6px;text-align:left;">Date</th>
+                        <th style="padding:4px 6px;text-align:left;">Time</th>
+                        <th style="padding:4px 6px;text-align:left;">Duration</th>
+                        <th style="padding:4px 6px;text-align:left;">Status</th>
+                        <th style="padding:4px 6px;text-align:left;">Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($practicalSessions as $sess)
+                        @php
+                            $rowBg = match($sess->status) {
+                                'completed'    => '#d1fae5',
+                                'failed'       => '#fee2e2',
+                                'not_appeared' => '#fef3c7',
+                                'cancelled'    => '#f3f4f6',
+                                default        => '#eff6ff',
+                            };
+                        @endphp
+                        <tr style="background:{{ $rowBg }};">
+                            <td style="padding:3px 6px;border:1px solid #e5e7eb;font-weight:700;">{{ $sess->session_number }}</td>
+                            <td style="padding:3px 6px;border:1px solid #e5e7eb;">{{ $sess->date ? $sess->date->format('M d, Y') : '—' }}</td>
+                            <td style="padding:3px 6px;border:1px solid #e5e7eb;">
+                                {{ $sess->start_time ? \Carbon\Carbon::parse($sess->start_time)->format('h:i A') : '—' }}
+                                — {{ $sess->end_time ? \Carbon\Carbon::parse($sess->end_time)->format('h:i A') : '—' }}
+                            </td>
+                            <td style="padding:3px 6px;border:1px solid #e5e7eb;">{{ $sess->duration_hours }}h</td>
+                            <td style="padding:3px 6px;border:1px solid #e5e7eb;font-weight:600;">{{ ucfirst(str_replace('_',' ',$sess->status)) }}</td>
+                            <td style="padding:3px 6px;border:1px solid #e5e7eb;">{{ $sess->instructor_notes ?? '—' }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
         @else
             <div style="font-size:9px;color:#9ca3af;padding:6px 0;">
-                No practical slot assigned.
+                No practical sessions assigned.
                 @if($student->theory_status !== 'completed')
                     Theory classes must be completed before practical assignment.
                 @endif
@@ -520,9 +533,9 @@
         @endif
 
         @if($student->practical_status == 'failed')
-            <div class="callout callout-warning"><div class="callout-title">Practical Not Passed</div><div class="callout-text">Student did not pass the practical session. Re-scheduling may be required.</div></div>
+            <div class="callout callout-warning"><div class="callout-title">Practical Not Passed</div><div class="callout-text">Student did not pass the practical sessions. Re-scheduling may be required.</div></div>
         @elseif($student->practical_status == 'not_appeared')
-            <div class="callout callout-warning"><div class="callout-title">Did Not Appear</div><div class="callout-text">Student did not appear for the scheduled practical session.</div></div>
+            <div class="callout callout-warning"><div class="callout-title">Did Not Appear</div><div class="callout-text">Student did not appear for the scheduled practical sessions.</div></div>
         @endif
     </div>
 

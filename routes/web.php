@@ -199,6 +199,8 @@ Route::middleware(['web'])
         Route::post('/instructor/mark-theory-complete', [DashboardController::class, 'markTheoryComplete'])->name('instructor.mark.theory.complete');
         Route::post('/instructor/assign-practical-slot', [DashboardController::class, 'assignPracticalSlot'])->name('instructor.assign.practical');
         Route::post('/instructor/submit-practical-feedback', [DashboardController::class, 'submitPracticalFeedback'])->name('instructor.submit.practical.feedback');
+        Route::post('/instructor/assign-practical-sessions', [DashboardController::class, 'assignPracticalSessions'])->name('instructor.assign.practical.sessions');
+        Route::post('/instructor/practical-sessions/{session}/feedback', [DashboardController::class, 'submitSessionFeedback'])->name('instructor.practical.session.feedback');
 
         Route::get('/instructor/student/{student}', [DashboardController::class, 'viewStudent'])->name('instructor.student.view');
 

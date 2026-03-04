@@ -788,8 +788,8 @@
         <div class="card-header-custom">
             <div class="section-icon" style="background:#10b981;"><i class="fas fa-car"></i></div>
             <div>
-                <div class="section-title">Practical Assignment & Flow</div>
-                <div class="section-subtitle">Assigned practical session, duration, and completion status</div>
+                <div class="section-title">Practical Assignment &amp; Flow</div>
+                <div class="section-subtitle">Practical sessions (2 hours each), schedule and completion status</div>
             </div>
         </div>
         <div class="card-body-custom">
@@ -808,10 +808,10 @@
                     Status:
                     @php
                         $practicalStatusMap = [
-                            'pending'      => ['Pending', 'var(--gray-500)'],
-                            'assigned'     => ['Assigned', 'var(--primary)'],
-                            'completed'    => ['Completed', 'var(--success)'],
-                            'failed'       => ['Failed', 'var(--danger)'],
+                            'pending'      => ['Pending',      'var(--gray-500)'],
+                            'assigned'     => ['Assigned',     'var(--primary)'],
+                            'completed'    => ['Completed',    'var(--success)'],
+                            'failed'       => ['Failed',       'var(--danger)'],
                             'not_appeared' => ['Not Appeared', 'var(--warning)'],
                         ];
                         $ps2 = $practicalStatusMap[$student->practical_status] ?? ['Unknown', 'var(--gray-500)'];
@@ -823,74 +823,101 @@
                 </div>
             </div>
 
-            {{-- Assigned Practical Slot --}}
-            @if($student->practicalSchedule)
-                @php $slot = $student->practicalSchedule; @endphp
-                <div class="practical-slot">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h6 style="font-weight:700;margin:0;color:#065f46;"><i class="fas fa-calendar-check me-2"></i>Assigned Practical Slot</h6>
-                        @php
-                            $slotPillMap = ['pending'=>'pill-warning','assigned'=>'pill-primary','completed'=>'pill-success','failed'=>'pill-danger','not_appeared'=>'pill-warning'];
-                        @endphp
-                        <span class="status-pill {{ $slotPillMap[$student->practical_status] ?? 'pill-secondary' }}">
-                            {{ ucfirst(str_replace('_', ' ', $student->practical_status)) }}
-                        </span>
-                    </div>
-                    <div class="slot-grid">
-                        <div class="slot-item">
-                            <div class="slot-label">Date</div>
-                            <div class="slot-value">{{ \Carbon\Carbon::parse($slot->date)->format('l, M d, Y') }}</div>
-                        </div>
-                        <div class="slot-item">
-                            <div class="slot-label">Start Time</div>
-                            <div class="slot-value">{{ \Carbon\Carbon::parse($slot->start_time)->format('h:i A') }}</div>
-                        </div>
-                        <div class="slot-item">
-                            <div class="slot-label">End Time</div>
-                            <div class="slot-value">{{ \Carbon\Carbon::parse($slot->end_time)->format('h:i A') }}</div>
-                        </div>
-                        <div class="slot-item">
-                            <div class="slot-label">Duration</div>
-                            <div class="slot-value" style="color:#047857;">{{ $practicalDuration }}h ({{ $practicalDuration * 60 }} min)</div>
-                        </div>
-                        <div class="slot-item">
-                            <div class="slot-label">Instructor</div>
-                            <div class="slot-value">{{ $slot->instructor->instructor_name ?? '—' }}</div>
-                        </div>
-                        <div class="slot-item">
-                            <div class="slot-label">Session Type</div>
-                            <div class="slot-value text-capitalize">{{ $slot->session_type }}</div>
-                        </div>
-                    </div>
+            {{-- Practical Sessions Table --}}
+            @if(isset($practicalSessions) && $practicalSessions->count() > 0)
+                @php
+                    $sessStatusColors = [
+                        'scheduled'    => ['#2563eb','#eff6ff'],
+                        'completed'    => ['#10b981','#d1fae5'],
+                        'failed'       => ['#ef4444','#fee2e2'],
+                        'not_appeared' => ['#f59e0b','#fef3c7'],
+                        'cancelled'    => ['#6b7280','#f3f4f6'],
+                    ];
+                    $totalPlanned   = $practicalSessions->count();
+                    $totalCompleted = $practicalSessions->where('status','completed')->count();
+                    $totalHoursCompleted = $practicalSessions->where('status','completed')->sum('duration_hours');
+                @endphp
+
+                {{-- Summary chips --}}
+                <div class="d-flex flex-wrap mb-3" style="gap:.5rem;">
+                    <span style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:20px;padding:4px 14px;font-size:.8rem;color:#065f46;">
+                        <i class="fas fa-list-ol me-1"></i> {{ $totalPlanned }} session(s) planned
+                    </span>
+                    <span style="background:#ecfdf5;border:1px solid #6ee7b7;border-radius:20px;padding:4px 14px;font-size:.8rem;color:#065f46;">
+                        <i class="fas fa-check-circle me-1"></i> {{ $totalCompleted }} completed
+                    </span>
+                    <span style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:20px;padding:4px 14px;font-size:.8rem;color:#065f46;">
+                        <i class="fas fa-clock me-1"></i> {{ $totalHoursCompleted }}h done
+                    </span>
                 </div>
+
+                <div class="table-responsive">
+                    <table class="table table-bordered" style="font-size:.875rem;">
+                        <thead style="background:var(--pd-navy,#1a2e4a);color:#fff;">
+                            <tr>
+                                <th style="width:40px;">#</th>
+                                <th>Date</th>
+                                <th>Start Time</th>
+                                <th>End Time</th>
+                                <th>Duration</th>
+                                <th>Status</th>
+                                <th>Instructor Notes</th>
+                                <th>Completed At</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($practicalSessions as $sess)
+                                @php
+                                    [$fc,$bg] = $sessStatusColors[$sess->status] ?? ['#6b7280','#f3f4f6'];
+                                @endphp
+                                <tr style="background:{{ $bg }};">
+                                    <td class="text-center font-weight-bold">{{ $sess->session_number }}</td>
+                                    <td>{{ $sess->date ? $sess->date->format('M d, Y') : '—' }}</td>
+                                    <td>{{ $sess->start_time ? \Carbon\Carbon::parse($sess->start_time)->format('h:i A') : '—' }}</td>
+                                    <td>{{ $sess->end_time ? \Carbon\Carbon::parse($sess->end_time)->format('h:i A') : '—' }}</td>
+                                    <td>{{ $sess->duration_hours }} hr</td>
+                                    <td>
+                                        <span style="background:{{ $fc }};color:#fff;padding:2px 10px;border-radius:12px;font-size:.78rem;font-weight:600;">
+                                            {{ ucfirst(str_replace('_', ' ', $sess->status)) }}
+                                        </span>
+                                    </td>
+                                    <td style="max-width:200px;white-space:normal;">{{ $sess->instructor_notes ?? '—' }}</td>
+                                    <td>{{ $sess->completed_at ? $sess->completed_at->format('M d, Y h:i A') : '—' }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
             @else
-                <div class="empty-state" style="background:var(--gray-50);border-radius:12px;border:1px dashed var(--gray-200);">
+                <div class="empty-state" style="background:var(--gray-50,#f9fafb);border-radius:12px;border:1px dashed var(--gray-200,#e5e7eb);">
                     <i class="fas fa-car"></i>
-                    <p style="margin-bottom:4px;font-weight:600;">No Practical Slot Assigned</p>
+                    <p style="margin-bottom:4px;font-weight:600;">No Practical Sessions Assigned</p>
                     <small>
                         @if($student->theory_status !== 'completed')
-                            Student must complete theory classes before practical assignment.
+                            Student must complete theory classes before practical sessions can be scheduled.
                         @else
-                            Theory completed. Awaiting practical slot assignment by instructor.
+                            Theory completed. Instructor can now assign practical sessions.
                         @endif
                     </small>
                 </div>
             @endif
 
+            {{-- Outcome Summary Banner --}}
             @if($student->practical_status == 'completed' && $student->practical_completion_date)
-                <div class="mt-3 p-3" style="background:#d1fae5;border-radius:10px;border-left:4px solid var(--success);">
+                <div class="mt-3 p-3" style="background:#d1fae5;border-radius:10px;border-left:4px solid var(--success,#10b981);">
                     <strong><i class="fas fa-check-circle text-success me-2"></i>Practical Completed</strong>
-                    <div style="font-size:0.85rem;margin-top:4px;">Practical session completed on {{ \Carbon\Carbon::parse($student->practical_completion_date)->format('M d, Y') }}</div>
+                    <div style="font-size:.85rem;margin-top:4px;">All practical sessions completed. Final date: {{ \Carbon\Carbon::parse($student->practical_completion_date)->format('M d, Y') }}</div>
                 </div>
             @elseif($student->practical_status == 'failed')
-                <div class="mt-3 p-3" style="background:#fee2e2;border-radius:10px;border-left:4px solid var(--danger);">
+                <div class="mt-3 p-3" style="background:#fee2e2;border-radius:10px;border-left:4px solid var(--danger,#ef4444);">
                     <strong><i class="fas fa-times-circle text-danger me-2"></i>Practical Not Passed</strong>
-                    <div style="font-size:0.85rem;margin-top:4px;">Student did not pass the practical session. May need re-scheduling.</div>
+                    <div style="font-size:.85rem;margin-top:4px;">Student did not pass one or more practical sessions. Re-scheduling may be required.</div>
                 </div>
             @elseif($student->practical_status == 'not_appeared')
-                <div class="mt-3 p-3" style="background:#fef3c7;border-radius:10px;border-left:4px solid var(--warning);">
+                <div class="mt-3 p-3" style="background:#fef3c7;border-radius:10px;border-left:4px solid var(--warning,#f59e0b);">
                     <strong><i class="fas fa-exclamation-triangle text-warning me-2"></i>Did Not Appear</strong>
-                    <div style="font-size:0.85rem;margin-top:4px;">Student did not appear for the scheduled practical session.</div>
+                    <div style="font-size:.85rem;margin-top:4px;">Student did not appear for the scheduled practical sessions.</div>
                 </div>
             @endif
         </div>
