@@ -3,7 +3,8 @@
     "allow": [
       "Bash(ls:*)",
       "Bash(php artisan:*)",
-      "Bash(php:*)"
+      "Bash(php:*)",
+      "Bash(\"C:/xampp/mysql/bin/mysql.exe\":*)"
     ]
   }
 }

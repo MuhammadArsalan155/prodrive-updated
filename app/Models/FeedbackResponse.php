@@ -17,6 +17,8 @@ class FeedbackResponse extends Model
         'response',
         'comments',
         'class_order',
+        'class_type',
+        'course_lesson_plan_id',
     ];
 
     protected $casts = [

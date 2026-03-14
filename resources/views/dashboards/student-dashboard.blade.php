@@ -142,26 +142,38 @@
                 </div>
             </div>
 
-            <!-- Theory Hours Card -->
+            <!-- Theory Classes Card -->
             <div class="col-xl-3 col-md-6 mb-4">
                 <div class="card border-left-success shadow h-100 py-2">
                     <div class="card-body">
                         <div class="row no-gutters align-items-center">
                             <div class="col mr-2">
                                 <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
-                                    Theory Hours
+                                    Theory Classes
                                 </div>
+                                @if($courseProgress['theory_classes']['required'] > 0)
                                 <div class="h5 mb-0 font-weight-bold text-gray-800">
-                                    {{ $courseProgress['theory_hours']['completed'] }} /
-                                    {{ $courseProgress['theory_hours']['total'] }} hours
+                                    {{ $courseProgress['theory_classes']['completed'] }} /
+                                    {{ $courseProgress['theory_classes']['required'] }} classes
                                 </div>
                                 <div class="progress progress-sm mt-2">
                                     <div class="progress-bar bg-success" role="progressbar"
-                                        style="width: {{ $courseProgress['theory_hours']['percentage'] }}%"
-                                        aria-valuenow="{{ $courseProgress['theory_hours']['percentage'] }}"
+                                        style="width: {{ $courseProgress['theory_classes']['percentage'] }}%"
+                                        aria-valuenow="{{ $courseProgress['theory_classes']['percentage'] }}"
                                         aria-valuemin="0" aria-valuemax="100">
                                     </div>
                                 </div>
+                                @else
+                                <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                    {{ $courseProgress['theory_hours']['completed'] }} /
+                                    {{ $courseProgress['theory_hours']['total'] }} hrs
+                                </div>
+                                <div class="progress progress-sm mt-2">
+                                    <div class="progress-bar bg-success" role="progressbar"
+                                        style="width: {{ $courseProgress['theory_hours']['percentage'] }}%">
+                                    </div>
+                                </div>
+                                @endif
                                 <div class="text-xs text-muted mt-1">
                                     Status: {{ $courseProgress['theory_hours']['status'] }}
                                 </div>
@@ -174,26 +186,38 @@
                 </div>
             </div>
 
-            <!-- Practical Hours Card -->
+            <!-- Practical Classes Card -->
             <div class="col-xl-3 col-md-6 mb-4">
                 <div class="card border-left-info shadow h-100 py-2">
                     <div class="card-body">
                         <div class="row no-gutters align-items-center">
                             <div class="col mr-2">
                                 <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
-                                    Practical Hours
+                                    Practical Classes
                                 </div>
+                                @if($courseProgress['practical_classes']['required'] > 0)
                                 <div class="h5 mb-0 font-weight-bold text-gray-800">
-                                    {{ $courseProgress['practical_hours']['completed'] }} /
-                                    {{ $courseProgress['practical_hours']['total'] }} hours
+                                    {{ $courseProgress['practical_classes']['completed'] }} /
+                                    {{ $courseProgress['practical_classes']['required'] }} classes
                                 </div>
                                 <div class="progress progress-sm mt-2">
                                     <div class="progress-bar bg-info" role="progressbar"
-                                        style="width: {{ $courseProgress['practical_hours']['percentage'] }}%"
-                                        aria-valuenow="{{ $courseProgress['practical_hours']['percentage'] }}"
+                                        style="width: {{ $courseProgress['practical_classes']['percentage'] }}%"
+                                        aria-valuenow="{{ $courseProgress['practical_classes']['percentage'] }}"
                                         aria-valuemin="0" aria-valuemax="100">
                                     </div>
                                 </div>
+                                @else
+                                <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                    {{ $courseProgress['practical_hours']['completed'] }} /
+                                    {{ $courseProgress['practical_hours']['total'] }} hrs
+                                </div>
+                                <div class="progress progress-sm mt-2">
+                                    <div class="progress-bar bg-info" role="progressbar"
+                                        style="width: {{ $courseProgress['practical_hours']['percentage'] }}%">
+                                    </div>
+                                </div>
+                                @endif
                                 <div class="text-xs text-muted mt-1">
                                     Status: {{ $courseProgress['practical_hours']['status'] }}
                                 </div>
@@ -331,7 +355,7 @@
                         </button>
                     </div>
                     <div class="card-body">
-                        @forelse($upcomingSchedules->take(5) as $schedule)
+                        @forelse($upcomingSchedules as $schedule)
                             <div class="alert alert-light border-left-primary shadow-sm mb-2">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
@@ -346,7 +370,7 @@
                                             Instructor: {{ $schedule['instructor_name'] }}
                                         </small>
                                     </div>
-                                    <span class="badge badge-primary">Upcoming</span>
+                                    <span class="badge badge-primary">Enrolled</span>
                                 </div>
                             </div>
                         @empty
@@ -355,31 +379,79 @@
                                 No upcoming schedules
                             </div>
                         @endforelse
+                    </div>
+                </div>
 
-                        <!-- Collapsible section for all schedules -->
-                        <div class="collapse mt-3" id="scheduleDetails">
+                <!-- Previous Sessions -->
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                        <h6 class="m-0 font-weight-bold text-secondary">
+                            <i class="fas fa-history mr-2"></i>Previous Sessions
+                        </h6>
+                        @if($pastSchedules->count() > 5)
+                        <button class="btn btn-sm btn-outline-secondary" data-toggle="collapse" data-target="#pastScheduleDetails">
+                            <i class="fas fa-eye mr-1"></i>View All
+                        </button>
+                        @endif
+                    </div>
+                    <div class="card-body">
+                        @forelse($pastSchedules->take(5) as $session)
+                            <div class="alert alert-success border-left-success shadow-sm mb-2">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <strong>{{ $session['session_type'] }} Session</strong>
+                                        <span class="badge badge-light text-dark ml-1">Class #{{ $session['class_order'] }}</span>
+                                        <p class="mb-0 text-gray-800">
+                                            <i class="fas fa-clock mr-1"></i>
+                                            {{ $session['day_name'] }}, {{ $session['date'] }} |
+                                            {{ $session['start_time'] }} - {{ $session['end_time'] }}
+                                        </p>
+                                        <small class="text-muted">
+                                            <i class="fas fa-user-tie mr-1"></i>
+                                            Instructor: {{ $session['instructor_name'] }}
+                                            &nbsp;|&nbsp;
+                                            <i class="fas fa-check-circle mr-1 text-success"></i>
+                                            Completed: {{ $session['completed_at'] }}
+                                        </small>
+                                    </div>
+                                    <span class="badge badge-success"><i class="fas fa-check mr-1"></i>Attended</span>
+                                </div>
+                            </div>
+                        @empty
+                            <div class="text-center text-muted py-3">
+                                <i class="fas fa-calendar-check mr-2"></i>
+                                No previous sessions yet
+                            </div>
+                        @endforelse
+
+                        @if($pastSchedules->count() > 5)
+                        <div class="collapse mt-3" id="pastScheduleDetails">
                             <hr>
-                            <h6 class="font-weight-bold">All Upcoming Schedules</h6>
-                            @foreach($upcomingSchedules->skip(5) as $schedule)
-                                <div class="alert alert-light border-left-info shadow-sm mb-2">
+                            <h6 class="font-weight-bold">All Previous Sessions</h6>
+                            @foreach($pastSchedules->skip(5) as $session)
+                                <div class="alert alert-success border-left-success shadow-sm mb-2">
                                     <div class="d-flex justify-content-between align-items-center">
                                         <div>
-                                            <strong>{{ $schedule['session_type'] }} Session</strong>
+                                            <strong>{{ $session['session_type'] }} Session</strong>
+                                            <span class="badge badge-light text-dark ml-1">Class #{{ $session['class_order'] }}</span>
                                             <p class="mb-0 text-gray-800">
                                                 <i class="fas fa-clock mr-1"></i>
-                                                {{ $schedule['day_name'] }}, {{ $schedule['date'] }} |
-                                                {{ $schedule['start_time'] }} - {{ $schedule['end_time'] }}
+                                                {{ $session['day_name'] }}, {{ $session['date'] }} |
+                                                {{ $session['start_time'] }} - {{ $session['end_time'] }}
                                             </p>
                                             <small class="text-muted">
                                                 <i class="fas fa-user-tie mr-1"></i>
-                                                Instructor: {{ $schedule['instructor_name'] }}
+                                                Instructor: {{ $session['instructor_name'] }}
+                                                &nbsp;|&nbsp;
+                                                Completed: {{ $session['completed_at'] }}
                                             </small>
                                         </div>
-                                        <span class="badge badge-info">Scheduled</span>
+                                        <span class="badge badge-success"><i class="fas fa-check mr-1"></i>Attended</span>
                                     </div>
                                 </div>
                             @endforeach
                         </div>
+                        @endif
                     </div>
                 </div>
 
@@ -540,8 +612,11 @@
                                         </small>
                                         <div class="mt-2">
                                             <button class="btn btn-sm btn-warning submit-feedback-btn"
-                                                    data-schedule-id="{{ $feedback['schedule_id'] }}">
+                                                    data-attendance-id="{{ $feedback['attendance_id'] }}">
                                                 <i class="fas fa-comment-dots mr-1"></i>Submit Feedback
+                                                @if(isset($feedback['class_order']))
+                                                    <small>(Class {{ $feedback['class_order'] }})</small>
+                                                @endif
                                             </button>
                                         </div>
                                     </div>
@@ -731,7 +806,7 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
     // Global variables
-    let currentScheduleId = null;
+    let currentAttendanceId = null;
     let currentInstallmentId = null;
     let isProcessing = false;
 
@@ -902,13 +977,13 @@
             button.addEventListener('click', function() {
                 if (isProcessing) return;
 
-                currentScheduleId = this.getAttribute('data-schedule-id');
-                loadFeedbackForm(currentScheduleId);
+                currentAttendanceId = this.getAttribute('data-attendance-id');
+                loadFeedbackForm(currentAttendanceId);
             });
         });
 
         // Load feedback form
-        async function loadFeedbackForm(scheduleId) {
+        async function loadFeedbackForm(attendanceId) {
             const modalBody = document.getElementById('feedbackModalBody');
             const submitBtn = document.getElementById('submitFeedbackBtn');
 
@@ -927,7 +1002,7 @@
             $('#feedbackModal').modal('show');
 
             try {
-                const result = await makeApiCall(`/student/dashboard/feedback/${scheduleId}`);
+                const result = await makeApiCall(`/student/feedback/${attendanceId}`);
 
                 if (result.success) {
                     renderFeedbackForm(result.lesson_plan, result.questions, result.schedule);
@@ -1034,7 +1109,7 @@
         const submitFeedbackBtn = document.getElementById('submitFeedbackBtn');
         if (submitFeedbackBtn) {
             submitFeedbackBtn.addEventListener('click', async function() {
-                if (isProcessing || !currentScheduleId) return;
+                if (isProcessing || !currentAttendanceId) return;
 
                 const form = document.getElementById('feedbackForm');
                 const formData = new FormData(form);
@@ -1095,7 +1170,7 @@
                     }
 
                     const result = await makeApiCall(
-                        `/student/dashboard/feedback/${currentScheduleId}`,
+                        `/student/feedback/${currentAttendanceId}`,
                         'POST',
                         { responses: responses }
                     );
@@ -1138,7 +1213,7 @@
 
         // Reset feedback modal when hidden
         $('#feedbackModal').on('hidden.bs.modal', function() {
-            currentScheduleId = null;
+            currentAttendanceId = null;
             const submitBtn = document.getElementById('submitFeedbackBtn');
             if (submitBtn) {
                 submitBtn.style.display = 'none';

@@ -202,6 +202,14 @@ Route::middleware(['web'])
         Route::post('/instructor/assign-practical-sessions', [DashboardController::class, 'assignPracticalSessions'])->name('instructor.assign.practical.sessions');
         Route::post('/instructor/practical-sessions/{session}/feedback', [DashboardController::class, 'submitSessionFeedback'])->name('instructor.practical.session.feedback');
 
+        // Mark a theory/practical schedule session as complete (creates session_attendance records)
+        Route::post('/instructor/schedule/{schedule}/mark-complete', [DashboardController::class, 'markClassComplete'])->name('instructor.schedule.mark.complete');
+
+        // Instructor submits end-of-course evaluation for a student
+        Route::post('/instructor/students/{student}/evaluation', [DashboardController::class, 'submitEvaluation'])->name('instructor.student.evaluation');
+        Route::post('/instructor/students/{student}/assign-schedules', [DashboardController::class, 'assignSchedulesToStudent'])->name('instructor.student.assign.schedules');
+        Route::post('/instructor/students/{student}/log-session', [DashboardController::class, 'logSession'])->name('instructor.student.log.session');
+
         Route::get('/instructor/student/{student}', [DashboardController::class, 'viewStudent'])->name('instructor.student.view');
 
         Route::get('addcourse', [CourseController::class, 'addcourse'])->name('addcourse');
@@ -216,6 +224,10 @@ Route::middleware(['web'])
 
         // Send Progress Report
         Route::post('/student/send-progress-report', [StudentDashboardController::class, 'sendProgressReport'])->name('student.send-progress-report');
+
+        // Student feedback — keyed by attendance ID (class_order + class_type encoded in attendance)
+        Route::get('/student/feedback/{attendanceId}', [StudentDashboardController::class, 'getAvailableFeedback'])->name('student.feedback.load');
+        Route::post('/student/feedback/{attendanceId}', [StudentDashboardController::class, 'submitFeedback'])->name('student.feedback.submit');
 
         Route::get('/student/progress-reports', [ProgressReportController::class, 'index'])->name('student.progress-reports.index');
 
@@ -253,6 +265,10 @@ Route::prefix('admin')
 Route::get('/register', [RegisterStudentController::class, 'index'])->name('register');
 Route::get('/payment/success', [PaymentController::class, 'handlePaymentSuccess'])->name('payment.success');
 Route::get('/payment/cancel', [PaymentController::class, 'handlePaymentCancel'])->name('payment.cancel');
+Route::get('/payment/result', function () {
+    abort_unless(session()->has('payment_result'), 404);
+    return view('register.payment-result', session('payment_result'));
+})->name('payment.result');
 Route::get('/certificate/verify', [App\Http\Controllers\Admin\CertificateController::class, 'verify'])->name('certificate.verify');
 
 Route::middleware(['auth'])

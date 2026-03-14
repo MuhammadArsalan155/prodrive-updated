@@ -23,6 +23,16 @@ class CourseSchedule extends Model
         return $this->hasMany(Student::class, 'practical_schedule_id');
     }
 
+    /**
+     * Students explicitly assigned to this schedule via the pivot table.
+     */
+    public function assignedStudents()
+    {
+        return $this->belongsToMany(Student::class, 'course_schedule_student', 'course_schedule_id', 'student_id')
+            ->withPivot('assigned_by')
+            ->withTimestamps();
+    }
+
     // Relationships
     public function course()
     {

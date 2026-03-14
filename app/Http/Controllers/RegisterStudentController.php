@@ -190,13 +190,15 @@ class RegisterStudentController extends Controller
                 'address' => $validated['address'],
                 'course_id' => $validated['course_id'],
                 'instructor_id' => $validated['instructor_id'],
-                'schedule_id' => $validated['schedule_id'],
+                'practical_schedule_id' => $validated['schedule_id'],
                 'course_status' => 0,  // Pending
                 'payment_status' => 0, // Pending
                 'joining_date' => now(),
-                // Add a flag to identify new registrations with payment functionality
-                'has_payment_process' => true, // This marks it as a new registration
+                'has_payment_process' => true,
             ]);
+
+            // Assign the selected schedule to the student via pivot
+            $student->assignedSchedules()->attach($validated['schedule_id']);
 
             // Store the password in session for later use
             session([

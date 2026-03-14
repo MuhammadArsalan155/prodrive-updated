@@ -8,6 +8,7 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <style>
         :root {
@@ -276,18 +277,6 @@
                 </div>
             </div>
 
-            @if (session('success') !== null)
-                <div class="alert {{ session('success') ? 'alert-success' : 'alert-danger' }}">
-                    @if (session('success'))
-                        <h4>Congratulations, {{ session('student_name') }}!</h4>
-                        <p>{{ session('message') }}</p>
-                        <p>You have successfully registered for {{ session('course_name') }}.</p>
-                    @else
-                        <h4>Registration Error</h4>
-                        <p>{{ session('message') }}</p>
-                    @endif
-                </div>
-            @endif
 
 
 
@@ -624,7 +613,7 @@
                 // Additional validation for specific steps
                 if (currentStep === 3 && !document.querySelector('.payment-method-card.selected')) {
                     isValid = false;
-                    alert('Please select a payment method');
+                    showError('Please select a payment method before proceeding.');
                 }
 
                 return isValid;
@@ -779,9 +768,14 @@
                 }
             });
 
-            function showError(message) {
-                // Implement your error showing logic here
-                alert(message);
+            function showError(message, detail = null) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: message,
+                    footer: detail ? `<small class="text-muted">${detail}</small>` : '',
+                    confirmButtonColor: '#1D4C5C'
+                });
             }
             // Update other fetch calls similarly
             async function fetchCourses() {
@@ -926,7 +920,7 @@
 
                 // Validate course selection
                 if (!selectedCourseId) {
-                    alert('Please select a course first');
+                    showError('Please select a course first.');
                     clickedCard.classList.remove('selected');
                     return;
                 }
@@ -975,7 +969,7 @@
                     displayPaymentOptions(data);
                 } catch (error) {
                     console.error('Error fetching payment details:', error);
-                    alert(`Failed to retrieve payment details: ${error.message}`);
+                    showError('Failed to retrieve payment details.', error.message);
                 }
             }
 
@@ -1056,7 +1050,7 @@
 
                 // Validate course selection
                 if (!selectedCourseId) {
-                    alert('Please select a course first');
+                    showError('Please select a course first.');
                     clickedCard.classList.remove('selected');
                     return;
                 }
@@ -1105,7 +1099,7 @@
                     displayPaymentOptions(data);
                 } catch (error) {
                     console.error('Error fetching payment details:', error);
-                    alert(`Failed to retrieve payment details: ${error.message}`);
+                    showError('Failed to retrieve payment details.', error.message);
                 }
             }
 
@@ -1409,22 +1403,17 @@
                     const studentResult = await studentResponse.json();
                     console.log('Student Registration Result:', studentResult);
 
-                    if (!studentResponse.ok) {
-
-                        console.log('Registration Error Details:', {
-                            status: studentResponse.status,
-                            message: studentResult.message,
-                            errors: studentResult.errors
-                        });
+                    if (!studentResponse.ok || studentResult.success === false) {
 
                         if (studentResponse.status === 422 && studentResult.errors) {
-                            console.log('Displaying Validation Errors:', studentResult.errors);
                             displayValidationErrors(studentResult.errors);
                             return;
                         }
 
-                        // Generic error handling
-                        throw new Error(studentResult.message || 'Student registration failed');
+                        const errMsg = studentResult.message || 'Student registration failed. Please try again.';
+                        const errDetail = studentResult.error_details || null;
+                        showError(errMsg, errDetail);
+                        return;
                     }
 
                     // Store the student ID for subsequent payment processing
@@ -1453,9 +1442,11 @@
 
                     const paymentResult = await paymentResponse.json();
 
-                    if (!paymentResponse.ok) {
-
-                        throw new Error(paymentResult.message || 'Payment processing failed');
+                    if (!paymentResponse.ok || paymentResult.success === false) {
+                        const errMsg = paymentResult.message || 'Payment processing failed. Please try again.';
+                        const errDetail = paymentResult.error_details || null;
+                        showError(errMsg, errDetail);
+                        return;
                     }
 
                     // Handle successful payment
@@ -1463,16 +1454,19 @@
                         // Redirect to payment gateway
                         window.location.href = paymentResult.checkout_url;
                     } else {
-                        showSuccess('Registration and payment successful!');
-                        setTimeout(() => {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Registration Successful!',
+                            html: '<p>Your registration and payment were completed successfully.</p><p class="text-muted mt-2">Your login credentials have been sent to your email.</p>',
+                            confirmButtonColor: '#1D4C5C',
+                            confirmButtonText: 'OK'
+                        }).then(() => {
                             window.location.href = '/';
-                        }, 2000);
+                        });
                     }
 
                 } catch (error) {
                     console.error('Error during registration:', error);
-
-
                     showError(error.message || 'Registration failed. Please try again.');
                 }
             }
@@ -1645,14 +1639,25 @@
                 document.getElementById('selectedCourseInfo').style.display = 'none';
             }
 
-            function showError(message) {
-                // Implement your error display logic here
-                alert(message);
+            function showError(message, detail = null) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Something went wrong',
+                    text: message,
+                    footer: detail ? `<small class="text-muted">${detail}</small>` : '',
+                    confirmButtonColor: '#1D4C5C'
+                });
             }
 
-            function showSuccess(message) {
-                // Implement your success display logic here
-                alert(message);
+            function showSuccess(message, subtext = '') {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Registration Successful!',
+                    text: message,
+                    html: subtext ? `<p>${message}</p><p class="text-muted mt-2">${subtext}</p>` : message,
+                    confirmButtonColor: '#1D4C5C',
+                    confirmButtonText: 'OK'
+                });
             }
         });
     </script>

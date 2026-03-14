@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Course;
 use App\Models\CourseSchedule;
+use App\Models\InstructorEvaluation;
 use App\Models\PracticalSession;
+use App\Models\SessionAttendance;
 use App\Models\Student;
 use App\Models\ClassFeedback;
 use Carbon\Carbon;
@@ -374,6 +376,137 @@ class DashboardController extends Controller
     }
 
     /**
+     * Mark a theory (or practical) schedule session as complete for all enrolled students.
+     * Creates/updates session_attendance records with computed class_order.
+     */
+    public function markClassComplete(Request $request, CourseSchedule $schedule)
+    {
+        $instructor = Auth::guard('instructor')->user();
+
+        // Verify instructor has students in this course (schedules are course-level, not per-instructor)
+        $hasStudents = Student::where('course_id', $schedule->course_id)
+            ->where('instructor_id', $instructor->id)
+            ->exists();
+        if (!$hasStudents) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        // All students for this instructor + course
+        $students = Student::where('course_id', $schedule->course_id)
+            ->where('instructor_id', $instructor->id)
+            ->get();
+
+        $autoCompletedTheory    = 0;
+        $autoCompletedPractical = 0;
+
+        foreach ($students as $student) {
+            // Determine class_order: count completed sessions of this type so far, then +1
+            $completedCount = SessionAttendance::where('student_id', $student->id)
+                ->where('class_type', $schedule->session_type)
+                ->where('status', 'completed')
+                ->where('course_schedule_id', '!=', $schedule->id) // exclude current if re-marking
+                ->count();
+
+            $classOrder = $completedCount + 1;
+
+            SessionAttendance::updateOrCreate(
+                [
+                    'student_id'         => $student->id,
+                    'course_schedule_id' => $schedule->id,
+                ],
+                [
+                    'is_present'   => true,
+                    'status'       => 'completed',
+                    'class_type'   => $schedule->session_type,
+                    'class_order'  => $classOrder,
+                    'completed_at' => now(),
+                    'notes'        => $request->input('notes'),
+                ]
+            );
+
+            // Auto-update student status based on completed class counts
+            $studentCourse = $student->course; // may be null
+            if ($schedule->session_type === 'theory') {
+                $totalDone     = $completedCount + 1; // includes the one just recorded
+                $totalRequired = $studentCourse ? ($studentCourse->total_theory_classes ?? 0) : 0;
+
+                if ($totalRequired > 0 && $totalDone >= $totalRequired) {
+                    // All required theory classes done — auto-complete
+                    if ($student->theory_status !== 'completed') {
+                        $student->update(['theory_status' => 'completed', 'theory_completion_date' => now()]);
+                        $autoCompletedTheory++;
+                    }
+                } elseif ($student->theory_status === 'pending') {
+                    $student->update(['theory_status' => 'in_progress']);
+                }
+            } elseif ($schedule->session_type === 'practical') {
+                $totalDone     = $completedCount + 1;
+                $totalRequired = $studentCourse ? ($studentCourse->total_practical_classes ?? 0) : 0;
+
+                if ($totalRequired > 0 && $totalDone >= $totalRequired) {
+                    if ($student->practical_status !== 'completed') {
+                        $student->update(['practical_status' => 'completed', 'practical_completion_date' => now()]);
+                        $autoCompletedPractical++;
+                    }
+                }
+            }
+        }
+
+        $msg = 'Session marked as complete for ' . $students->count() . ' student(s). Feedback is now unlocked for them.';
+        if ($autoCompletedTheory > 0) {
+            $msg .= ' ' . $autoCompletedTheory . ' student(s) have now completed all required theory classes.';
+        }
+        if ($autoCompletedPractical > 0) {
+            $msg .= ' ' . $autoCompletedPractical . ' student(s) have now completed all required practical classes.';
+        }
+
+        return redirect()->back()->with('success', $msg);
+    }
+
+    /**
+     * Submit instructor evaluation for a student at end of course.
+     */
+    public function submitEvaluation(Request $request, Student $student)
+    {
+        $instructor = Auth::guard('instructor')->user();
+
+        if ($student->instructor_id !== $instructor->id) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $request->validate([
+            'performance_rating'             => 'required|integer|min:1|max:5',
+            'behavior_rating'                => 'required|integer|min:1|max:5',
+            'attendance_rating'              => 'required|integer|min:1|max:5',
+            'overall_rating'                 => 'required|integer|min:1|max:5',
+            'performance_notes'              => 'nullable|string|max:2000',
+            'behavior_notes'                 => 'nullable|string|max:2000',
+            'recommendations'                => 'nullable|string|max:2000',
+            'is_recommended_for_certificate' => 'boolean',
+        ]);
+
+        InstructorEvaluation::updateOrCreate(
+            [
+                'student_id' => $student->id,
+                'course_id'  => $student->course_id,
+            ],
+            [
+                'instructor_id'                  => $instructor->id,
+                'performance_rating'             => $request->performance_rating,
+                'behavior_rating'                => $request->behavior_rating,
+                'attendance_rating'              => $request->attendance_rating,
+                'overall_rating'                 => $request->overall_rating,
+                'performance_notes'              => $request->performance_notes,
+                'behavior_notes'                 => $request->behavior_notes,
+                'recommendations'                => $request->recommendations,
+                'is_recommended_for_certificate' => $request->boolean('is_recommended_for_certificate', true),
+            ]
+        );
+
+        return redirect()->back()->with('success', 'Evaluation submitted successfully.');
+    }
+
+    /**
      * @deprecated – kept for backward-compat but new logic uses assignPracticalSessions().
      */
     public function assignPracticalSlot(Request $request)
@@ -444,10 +577,217 @@ class DashboardController extends Controller
             ->orderBy('session_number')
             ->get();
 
+        // Theory schedules for this student's course (not filtered by instructor_id,
+        // since schedules are created at course level by admin)
+        $theorySchedules = CourseSchedule::where('course_id', $student->course_id)
+            ->where('session_type', 'theory')
+            ->orderBy('date')
+            ->get();
+
+        // Session attendance records (to show which classes have been marked complete)
+        $sessionAttendances = SessionAttendance::where('student_id', $student->id)
+            ->get()
+            ->keyBy('course_schedule_id');
+
+        // Existing evaluation (if any)
+        $evaluation = InstructorEvaluation::where('student_id', $student->id)
+            ->where('course_id', $student->course_id)
+            ->first();
+
+        // Already-assigned schedule IDs for this student (query pivot directly to avoid dot-notation issues)
+        $assignedScheduleIds = DB::table('course_schedule_student')
+            ->where('student_id', $student->id)
+            ->pluck('course_schedule_id');
+
+        // Class count progress
+        $course = $student->course; // can be null if course was deleted
+        $completedTheoryClasses = SessionAttendance::where('student_id', $student->id)
+            ->where('class_type', 'theory')
+            ->where('status', 'completed')
+            ->count();
+        $completedPracticalClasses = SessionAttendance::where('student_id', $student->id)
+            ->where('class_type', 'practical')
+            ->where('status', 'completed')
+            ->count();
+        $totalTheoryRequired    = $course ? ($course->total_theory_classes    ?? 0) : 0;
+        $totalPracticalRequired = $course ? ($course->total_practical_classes ?? 0) : 0;
+
+        // Count upcoming assigned but not yet attended (so we don't over-assign)
+        $attendedScheduleIds      = $sessionAttendances->keys()->toArray();
+        $pendingAssignedTheory    = DB::table('course_schedules')
+            ->join('course_schedule_student', 'course_schedules.id', '=', 'course_schedule_student.course_schedule_id')
+            ->where('course_schedule_student.student_id', $student->id)
+            ->where('course_schedules.session_type', 'theory')
+            ->where('course_schedules.date', '>=', now()->toDateString())
+            ->whereNotIn('course_schedules.id', $attendedScheduleIds)
+            ->count();
+        $pendingAssignedPractical = DB::table('course_schedules')
+            ->join('course_schedule_student', 'course_schedules.id', '=', 'course_schedule_student.course_schedule_id')
+            ->where('course_schedule_student.student_id', $student->id)
+            ->where('course_schedules.session_type', 'practical')
+            ->where('course_schedules.date', '>=', now()->toDateString())
+            ->whereNotIn('course_schedules.id', $attendedScheduleIds)
+            ->count();
+
+        $classProgress = [
+            'theory' => [
+                'completed'           => $completedTheoryClasses,
+                'required'            => $totalTheoryRequired,
+                'pending_assigned'    => $pendingAssignedTheory,
+                'remaining_to_assign' => max(0, $totalTheoryRequired - $completedTheoryClasses - $pendingAssignedTheory),
+            ],
+            'practical' => [
+                'completed'           => $completedPracticalClasses,
+                'required'            => $totalPracticalRequired,
+                'pending_assigned'    => $pendingAssignedPractical,
+                'remaining_to_assign' => max(0, $totalPracticalRequired - $completedPracticalClasses - $pendingAssignedPractical),
+            ],
+        ];
+
+        // Future schedules available to assign (not yet assigned to student)
+        // Only include session types where the student still needs more classes.
+        // No instructor_id filter — schedules are created at course level by admin.
+        $availableQuery = CourseSchedule::where('course_id', $student->course_id)
+            ->where('date', '>=', now()->toDateString())
+            ->where('is_active', true)
+            ->whereNotIn('id', $assignedScheduleIds);
+
+        if ($totalTheoryRequired > 0 || $totalPracticalRequired > 0) {
+            $typesToShow = [];
+            if ($classProgress['theory']['remaining_to_assign'] > 0)    $typesToShow[] = 'theory';
+            if ($classProgress['practical']['remaining_to_assign'] > 0) $typesToShow[] = 'practical';
+            if (!empty($typesToShow)) {
+                $availableQuery->whereIn('session_type', $typesToShow);
+            } else {
+                $availableQuery->whereRaw('1 = 0'); // all slots filled — nothing to assign
+            }
+        }
+
+        $availableSchedules = $availableQuery->orderBy('date')->orderBy('start_time')->get();
+
         return view('instructor.student-view', [
-            'student'           => $student,
-            'instructor'        => $instructor,
-            'practicalSessions' => $practicalSessions,
+            'student'             => $student,
+            'instructor'          => $instructor,
+            'practicalSessions'   => $practicalSessions,
+            'theorySchedules'     => $theorySchedules,
+            'sessionAttendances'  => $sessionAttendances,
+            'evaluation'          => $evaluation,
+            'availableSchedules'  => $availableSchedules,
+            'assignedScheduleIds' => $assignedScheduleIds,
+            'classProgress'       => $classProgress,
         ]);
+    }
+
+    /**
+     * Instructor assigns upcoming schedules to a specific student.
+     */
+    public function assignSchedulesToStudent(Request $request, Student $student)
+    {
+        $instructor = Auth::guard('instructor')->user();
+
+        if ($student->instructor_id != $instructor->id) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $request->validate([
+            'schedule_ids'   => 'required|array|min:1',
+            'schedule_ids.*' => 'exists:course_schedules,id',
+        ]);
+
+        $validIds = CourseSchedule::whereIn('id', $request->schedule_ids)
+            ->where('course_id', $student->course_id)
+            ->pluck('id'); // No instructor_id filter — schedules are course-level
+
+        foreach ($validIds as $scheduleId) {
+            $student->assignedSchedules()->syncWithoutDetaching([
+                $scheduleId => ['assigned_by' => $instructor->id],
+            ]);
+        }
+
+        return redirect()->back()->with('success', count($validIds) . ' schedule(s) assigned to ' . $student->first_name . ' successfully.');
+    }
+
+    /**
+     * Instructor logs a completed theory/practical session directly for a student.
+     * Creates a CourseSchedule record on-the-fly and an attendance record.
+     */
+    public function logSession(Request $request, Student $student)
+    {
+        $instructor = Auth::guard('instructor')->user();
+
+        if ($student->instructor_id != $instructor->id) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $request->validate([
+            'session_type' => 'required|in:theory,practical',
+            'session_date' => 'required|date',
+            'start_time'   => 'required|date_format:H:i',
+            'end_time'     => 'required|date_format:H:i',
+            'notes'        => 'nullable|string|max:1000',
+        ]);
+
+        // Create a schedule record for this session
+        $schedule = CourseSchedule::create([
+            'course_id'    => $student->course_id,
+            'instructor_id'=> $instructor->id,
+            'date'         => $request->session_date,
+            'start_time'   => $request->start_time . ':00',
+            'end_time'     => $request->end_time   . ':00',
+            'session_type' => $request->session_type,
+            'max_students' => 1,
+            'is_active'    => true,
+        ]);
+
+        // Compute class_order: count prior completed sessions of this type
+        $completedCount = SessionAttendance::where('student_id', $student->id)
+            ->where('class_type', $request->session_type)
+            ->where('status', 'completed')
+            ->count();
+
+        $classOrder = $completedCount + 1;
+
+        // Create the attendance record
+        SessionAttendance::create([
+            'student_id'         => $student->id,
+            'course_schedule_id' => $schedule->id,
+            'is_present'         => true,
+            'status'             => 'completed',
+            'class_type'         => $request->session_type,
+            'class_order'        => $classOrder,
+            'completed_at'       => now(),
+            'notes'              => $request->notes,
+        ]);
+
+        // Also link student to schedule in pivot
+        $student->assignedSchedules()->syncWithoutDetaching([
+            $schedule->id => ['assigned_by' => $instructor->id],
+        ]);
+
+        // Auto-update student status
+        $studentCourse = $student->course;
+        if ($request->session_type === 'theory') {
+            $totalDone     = $completedCount + 1;
+            $totalRequired = $studentCourse ? ($studentCourse->total_theory_classes ?? 0) : 0;
+            if ($totalRequired > 0 && $totalDone >= $totalRequired) {
+                if ($student->theory_status !== 'completed') {
+                    $student->update(['theory_status' => 'completed', 'theory_completion_date' => now()]);
+                }
+            } elseif ($student->theory_status === 'pending') {
+                $student->update(['theory_status' => 'in_progress']);
+            }
+        } elseif ($request->session_type === 'practical') {
+            $totalDone     = $completedCount + 1;
+            $totalRequired = $studentCourse ? ($studentCourse->total_practical_classes ?? 0) : 0;
+            if ($totalRequired > 0 && $totalDone >= $totalRequired) {
+                if ($student->practical_status !== 'completed') {
+                    $student->update(['practical_status' => 'completed', 'practical_completion_date' => now()]);
+                }
+            }
+        }
+
+        return redirect()->back()->with('success',
+            ucfirst($request->session_type) . ' session #' . $classOrder . ' logged for ' . $student->first_name . '.'
+        );
     }
 }

@@ -213,7 +213,7 @@
                                         <label for="course_date" class="form-label">
                                             <i class="fas fa-calendar text-primary me-2"></i> Select Date
                                         </label>
-                                        <select name="course_date" id="course_date" class="form-control" required>
+                                        <select name="course_date" id="course_date" class="form-control" >
                                             <option value="">Select Date</option>
                                         </select>
                                     </div>
@@ -224,7 +224,7 @@
                                         <label for="course_slot" class="form-label">
                                             <i class="fas fa-clock text-primary me-2"></i> Select Time Slot
                                         </label>
-                                        <select name="course_slot" id="course_slot" class="form-control" required>
+                                        <select name="course_slot" id="course_slot" class="form-control" >
                                             <option value="">Select Time Slot</option>
                                         </select>
                                     </div>

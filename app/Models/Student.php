@@ -62,6 +62,16 @@ class Student extends Authenticatable
         return $this->belongsTo(CourseSchedule::class, 'practical_schedule_id');
     }
 
+    /**
+     * All schedules explicitly assigned to this student (registration + instructor-assigned).
+     */
+    public function assignedSchedules()
+    {
+        return $this->belongsToMany(CourseSchedule::class, 'course_schedule_student', 'student_id', 'course_schedule_id')
+            ->withPivot('assigned_by')
+            ->withTimestamps();
+    }
+
     public function getAuthIdentifierName()
     {
         return 'id';
@@ -132,6 +142,16 @@ class Student extends Authenticatable
     public function practicalSessions()
     {
         return $this->hasMany(PracticalSession::class)->orderBy('session_number');
+    }
+
+    public function sessionAttendances()
+    {
+        return $this->hasMany(SessionAttendance::class);
+    }
+
+    public function instructorEvaluation()
+    {
+        return $this->hasOne(InstructorEvaluation::class);
     }
 
     public function certificates()

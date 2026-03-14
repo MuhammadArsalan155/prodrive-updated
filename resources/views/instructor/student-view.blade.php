@@ -94,21 +94,22 @@
                     <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-book mr-2"></i>Course Information</h6>
                 </div>
                 <div class="card-body">
+                    @php $sc = $student->course; @endphp
                     <div class="row">
                         <div class="col-md-6">
-                            <p class="mb-1"><strong>Course:</strong> {{ $student->course->course_name }}</p>
-                            <p class="mb-1"><strong>Type:</strong> {{ ucfirst($student->course->course_type ?? 'N/A') }}</p>
+                            <p class="mb-1"><strong>Course:</strong> {{ $sc ? $sc->course_name : 'N/A' }}</p>
+                            <p class="mb-1"><strong>Type:</strong> {{ $sc ? ucfirst($sc->course_type ?? 'N/A') : 'N/A' }}</p>
                         </div>
                         <div class="col-md-6">
                             <p class="mb-1">
                                 <strong>Theory:</strong>
-                                {{ $student->course->theory_hours ?? 0 }} hrs &nbsp;|&nbsp;
-                                {{ $student->course->total_theory_classes ?? 0 }} classes
+                                {{ $sc ? ($sc->theory_hours ?? 0) : 0 }} hrs &nbsp;|&nbsp;
+                                {{ $sc ? ($sc->total_theory_classes ?? 0) : 0 }} classes
                             </p>
                             <p class="mb-1">
                                 <strong>Practical:</strong>
-                                {{ $student->course->practical_hours ?? 0 }} hrs &nbsp;|&nbsp;
-                                {{ $student->course->total_practical_classes ?? 0 }} classes
+                                {{ $sc ? ($sc->practical_hours ?? 0) : 0 }} hrs &nbsp;|&nbsp;
+                                {{ $sc ? ($sc->total_practical_classes ?? 0) : 0 }} classes
                             </p>
                         </div>
                     </div>
@@ -117,25 +118,71 @@
                     <!-- Progress Bars -->
                     <div class="mb-2">
                         @php
-                            $tTotal = $student->course->theory_hours ?? 1;
+                            $tTotal = $sc ? ($sc->theory_hours   ?? 1) : 1;
                             $tDone  = $student->hours_theory ?? 0;
-                            $tPct   = min(100, round(($tDone/$tTotal)*100));
-                            $pTotal = $student->course->practical_hours ?? 1;
+                            $tPct   = min(100, round(($tDone / max($tTotal, 1)) * 100));
+                            $pTotal = $sc ? ($sc->practical_hours ?? 1) : 1;
                             $pDone  = $student->hours_practical ?? 0;
-                            $pPct   = min(100, round(($pDone/$pTotal)*100));
+                            $pPct   = min(100, round(($pDone / max($pTotal, 1)) * 100));
                         @endphp
                         <small class="text-muted">Theory Hours: {{ $tDone }}/{{ $tTotal }}</small>
                         <div class="progress mb-2" style="height:10px;">
                             <div class="progress-bar bg-info" role="progressbar" style="width:{{ $tPct }}%"></div>
                         </div>
                         <small class="text-muted">Practical Hours: {{ $pDone }}/{{ $pTotal }}</small>
-                        <div class="progress" style="height:10px;">
+                        <div class="progress mb-3" style="height:10px;">
                             <div class="progress-bar bg-success" role="progressbar" style="width:{{ $pPct }}%"></div>
                         </div>
+
+                        {{-- Class Count Progress --}}
+                        @if(isset($classProgress))
+                        @php
+                            $tcReq  = $classProgress['theory']['required'];
+                            $tcDone = $classProgress['theory']['completed'];
+                            $tcPct  = $tcReq > 0 ? min(100, round(($tcDone/$tcReq)*100)) : 0;
+                            $pcReq  = $classProgress['practical']['required'];
+                            $pcDone = $classProgress['practical']['completed'];
+                            $pcPct  = $pcReq > 0 ? min(100, round(($pcDone/$pcReq)*100)) : 0;
+                        @endphp
+                        @if($tcReq > 0)
+                        <small class="text-muted">
+                            Theory Classes: <strong>{{ $tcDone }}/{{ $tcReq }}</strong>
+                            @if($classProgress['theory']['pending_assigned'] > 0)
+                                &nbsp;<span class="badge badge-light text-muted" style="font-size:.7rem;">+{{ $classProgress['theory']['pending_assigned'] }} upcoming</span>
+                            @endif
+                        </small>
+                        <div class="progress mb-2" style="height:10px;">
+                            <div class="progress-bar bg-primary" role="progressbar" style="width:{{ $tcPct }}%" title="{{ $tcDone }}/{{ $tcReq }} theory classes done"></div>
+                        </div>
+                        @endif
+                        @if($pcReq > 0)
+                        <small class="text-muted">
+                            Practical Classes: <strong>{{ $pcDone }}/{{ $pcReq }}</strong>
+                            @if($classProgress['practical']['pending_assigned'] > 0)
+                                &nbsp;<span class="badge badge-light text-muted" style="font-size:.7rem;">+{{ $classProgress['practical']['pending_assigned'] }} upcoming</span>
+                            @endif
+                        </small>
+                        <div class="progress" style="height:10px;">
+                            <div class="progress-bar bg-warning" role="progressbar" style="width:{{ $pcPct }}%" title="{{ $pcDone }}/{{ $pcReq }} practical classes done"></div>
+                        </div>
+                        @endif
+                        @endif
                     </div>
                     <hr>
 
                     <!-- Theory Status Row -->
+                    @php
+                        // "Mark Theory Complete" button only shown when:
+                        // - status is not yet completed, AND
+                        // - either no class count requirement OR all required classes are done
+                        $theoryClassesDone = isset($classProgress) ? $classProgress['theory']['completed'] : 0;
+                        $theoryRequired    = isset($classProgress) ? $classProgress['theory']['required']  : 0;
+                        $allTheoryDone     = $theoryRequired === 0 || $theoryClassesDone >= $theoryRequired;
+                        $showMarkTheoryBtn = in_array($student->theory_status, ['pending','in_progress']) && $allTheoryDone;
+
+                        // "Assign Practical Sessions" (old modal) only for courses without class count requirements
+                        $useNewPracticalFlow = isset($classProgress) && $classProgress['practical']['required'] > 0;
+                    @endphp
                     <div class="d-flex align-items-center justify-content-between flex-wrap">
                         <div>
                             <strong>Theory Status:</strong>
@@ -148,8 +195,11 @@
                             @if($student->theory_status=='completed' && $student->theory_completion_date)
                                 <small class="text-muted ml-2">Completed: {{ $student->theory_completion_date->format('M d, Y') }}</small>
                             @endif
+                            @if($theoryRequired > 0 && !$allTheoryDone)
+                                <small class="text-muted ml-2">({{ $theoryClassesDone }}/{{ $theoryRequired }} classes done)</small>
+                            @endif
                         </div>
-                        @if($student->theory_status == 'pending' || $student->theory_status == 'in_progress')
+                        @if($showMarkTheoryBtn)
                             <button class="btn btn-sm btn-success mt-1 mt-md-0" data-toggle="modal" data-target="#markTheoryCompleteModal">
                                 <i class="fas fa-check-circle mr-1"></i>Mark Theory Complete
                             </button>
@@ -173,7 +223,8 @@
                                 <small class="text-muted ml-2">Completed: {{ $student->practical_completion_date->format('M d, Y') }}</small>
                             @endif
                         </div>
-                        @if($student->theory_status == 'completed' && in_array($student->practical_status, ['pending','assigned']))
+                        {{-- Old "Assign Practical Sessions" modal only for courses without class count requirements --}}
+                        @if(!$useNewPracticalFlow && $student->theory_status == 'completed' && in_array($student->practical_status, ['pending','assigned']))
                             <button class="btn btn-sm btn-primary mt-1 mt-md-0" data-toggle="modal" data-target="#assignPracticalModal">
                                 <i class="fas fa-calendar-plus mr-1"></i>Assign Practical Sessions
                             </button>
@@ -181,6 +232,142 @@
                     </div>
                 </div>
             </div>
+
+            <!-- ===================== Log New Session ===================== -->
+            @php
+                $canLogTheory    = in_array($student->theory_status, ['pending','in_progress']);
+                $canLogPractical = $student->theory_status === 'completed' && in_array($student->practical_status, ['pending','assigned']);
+                $showLogCard     = $canLogTheory || $canLogPractical;
+            @endphp
+            @if($showLogCard)
+            <div class="card shadow mb-4 border-left-primary">
+                <div class="card-header py-3 d-flex align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-plus-circle mr-2"></i>Log Completed Session</h6>
+                    <span class="badge badge-primary">Quick Entry</span>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">Record a theory or practical class that has already been completed with this student.</p>
+                    <form action="{{ route('instructor.student.log.session', $student->id) }}" method="POST">
+                        @csrf
+                        <div class="form-row">
+                            <div class="form-group col-md-3">
+                                <label class="small font-weight-bold">Session Type <span class="text-danger">*</span></label>
+                                <select name="session_type" class="form-control form-control-sm" required>
+                                    @if($canLogTheory)
+                                        <option value="theory" selected>Theory</option>
+                                    @endif
+                                    @if($canLogPractical)
+                                        <option value="practical" {{ !$canLogTheory ? 'selected' : '' }}>Practical</option>
+                                    @endif
+                                </select>
+                            </div>
+                            <div class="form-group col-md-3">
+                                <label class="small font-weight-bold">Date <span class="text-danger">*</span></label>
+                                <input type="date" name="session_date" class="form-control form-control-sm"
+                                    value="{{ now()->toDateString() }}" max="{{ now()->toDateString() }}" required>
+                            </div>
+                            <div class="form-group col-md-2">
+                                <label class="small font-weight-bold">Start Time <span class="text-danger">*</span></label>
+                                <input type="time" name="start_time" class="form-control form-control-sm"
+                                    value="{{ now()->format('H:i') }}" required>
+                            </div>
+                            <div class="form-group col-md-2">
+                                <label class="small font-weight-bold">End Time <span class="text-danger">*</span></label>
+                                <input type="time" name="end_time" class="form-control form-control-sm"
+                                    value="{{ now()->addHour()->format('H:i') }}" required>
+                            </div>
+                            <div class="form-group col-md-2 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary btn-sm w-100">
+                                    <i class="fas fa-check mr-1"></i>Log Session
+                                </button>
+                            </div>
+                        </div>
+                        <div class="form-group mb-0">
+                            <label class="small font-weight-bold">Notes (optional)</label>
+                            <input type="text" name="notes" class="form-control form-control-sm" placeholder="Any notes about this session...">
+                        </div>
+                    </form>
+                </div>
+            </div>
+            @endif
+
+            <!-- ===================== Theory Sessions (per-class mark complete) ===================== -->
+            @if(isset($theorySchedules) && $theorySchedules->count() > 0)
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-info"><i class="fas fa-chalkboard-teacher mr-2"></i>Theory Sessions</h6>
+                    <span class="badge badge-info">{{ $theorySchedules->count() }} scheduled</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-bordered mb-0">
+                            <thead class="thead-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Date</th>
+                                    <th>Time</th>
+                                    <th>Class&nbsp;Order</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($theorySchedules as $i => $sch)
+                                @php
+                                    $att = $sessionAttendances[$sch->id] ?? null;
+                                    $done = $att && $att->status === 'completed';
+                                @endphp
+                                <tr class="{{ $done ? 'table-success' : '' }}">
+                                    <td>{{ $i + 1 }}</td>
+                                    <td>{{ $sch->date->format('M d, Y') }}</td>
+                                    <td>
+                                        {{ \Carbon\Carbon::parse($sch->start_time)->format('h:i A') }}
+                                        &ndash;
+                                        {{ \Carbon\Carbon::parse($sch->end_time)->format('h:i A') }}
+                                    </td>
+                                    <td>
+                                        @if($att)
+                                            <span class="badge badge-secondary">Class {{ $att->class_order }}</span>
+                                        @else
+                                            <span class="text-muted">—</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @if($done)
+                                            <span class="badge badge-success"><i class="fas fa-check mr-1"></i>Completed</span>
+                                            @if($att->completed_at)
+                                                <small class="text-muted d-block">{{ $att->completed_at->format('M d, Y') }}</small>
+                                            @endif
+                                        @elseif($sch->date->isFuture())
+                                            <span class="badge badge-light text-muted">Upcoming</span>
+                                        @else
+                                            <span class="badge badge-warning">Pending Mark</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @if(!$done)
+                                            <button class="btn btn-sm btn-outline-success"
+                                                data-toggle="modal"
+                                                data-target="#markClassModal{{ $sch->id }}">
+                                                <i class="fas fa-check-circle mr-1"></i>Mark Done
+                                            </button>
+                                        @else
+                                            <span class="text-success" style="font-size:.8rem;"><i class="fas fa-check"></i> Done</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="px-3 py-2">
+                        <small class="text-muted"><i class="fas fa-info-circle mr-1"></i>
+                            Marking a session as done creates an attendance record and unlocks feedback for the student.
+                        </small>
+                    </div>
+                </div>
+            </div>
+            @endif
 
             <!-- ===================== Practical Sessions List ===================== -->
             @if($practicalSessions->count() > 0)
@@ -247,12 +434,323 @@
             </div>
             @endif
 
+            <!-- ===================== Assign Next Classes ===================== -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-success">
+                        <i class="fas fa-calendar-plus mr-2"></i>Assign Next Classes
+                    </h6>
+                    <span class="badge badge-success">{{ $assignedScheduleIds->count() }} assigned</span>
+                </div>
+                <div class="card-body">
+
+                    {{-- Workflow Guide --}}
+                    @if(isset($classProgress) && ($classProgress['theory']['required'] > 0 || $classProgress['practical']['required'] > 0))
+                    <div class="mb-3 p-2 rounded" style="background:#f8f9fa;border-left:4px solid var(--pd-blue);">
+                        <small class="font-weight-bold text-primary d-block mb-1"><i class="fas fa-route mr-1"></i>How to assign classes:</small>
+                        <div class="d-flex flex-wrap" style="gap:.3rem;font-size:.8rem;">
+                            <span class="badge {{ $classProgress['theory']['completed'] > 0 ? 'badge-primary' : 'badge-secondary' }}">
+                                <i class="fas fa-{{ $classProgress['theory']['completed'] >= $classProgress['theory']['required'] && $classProgress['theory']['required'] > 0 ? 'check' : 'book' }} mr-1"></i>
+                                1. Mark each theory class done below
+                            </span>
+                            <i class="fas fa-arrow-right text-muted mt-1"></i>
+                            <span class="badge badge-secondary">2. Select &amp; assign next class from table below</span>
+                            @if($classProgress['practical']['required'] > 0)
+                            <i class="fas fa-arrow-right text-muted mt-1"></i>
+                            <span class="badge {{ $student->theory_status === 'completed' ? 'badge-success' : 'badge-secondary' }}">
+                                <i class="fas fa-{{ $student->theory_status === 'completed' ? 'check' : 'car' }} mr-1"></i>
+                                3. After theory done → assign practical
+                            </span>
+                            @endif
+                        </div>
+                    </div>
+                    @endif
+
+                    {{-- Class requirement summary --}}
+                    @if(isset($classProgress) && ($classProgress['theory']['required'] > 0 || $classProgress['practical']['required'] > 0))
+                    <div class="row mb-3">
+                        @if($classProgress['theory']['required'] > 0)
+                        <div class="col-6">
+                            <div class="p-2 rounded border text-center" style="background:#f0f8ff;">
+                                <div class="font-weight-bold text-primary" style="font-size:1.1rem;">
+                                    {{ $classProgress['theory']['completed'] }}<span class="text-muted">/{{ $classProgress['theory']['required'] }}</span>
+                                </div>
+                                <small class="text-muted">Theory Classes Done</small>
+                                @if($classProgress['theory']['pending_assigned'] > 0)
+                                    <br><small class="text-info">+{{ $classProgress['theory']['pending_assigned'] }} upcoming</small>
+                                @endif
+                                @if($classProgress['theory']['remaining_to_assign'] > 0)
+                                    <br><small class="text-success font-weight-bold">{{ $classProgress['theory']['remaining_to_assign'] }} slot(s) to fill</small>
+                                @else
+                                    <br><small class="text-success"><i class="fas fa-check mr-1"></i>All assigned</small>
+                                @endif
+                            </div>
+                        </div>
+                        @endif
+                        @if($classProgress['practical']['required'] > 0)
+                        <div class="col-6">
+                            <div class="p-2 rounded border text-center" style="background:#f0fff0;">
+                                <div class="font-weight-bold text-success" style="font-size:1.1rem;">
+                                    {{ $classProgress['practical']['completed'] }}<span class="text-muted">/{{ $classProgress['practical']['required'] }}</span>
+                                </div>
+                                <small class="text-muted">Practical Classes Done</small>
+                                @if($classProgress['practical']['pending_assigned'] > 0)
+                                    <br><small class="text-info">+{{ $classProgress['practical']['pending_assigned'] }} upcoming</small>
+                                @endif
+                                @if($classProgress['practical']['remaining_to_assign'] > 0)
+                                    <br><small class="text-success font-weight-bold">{{ $classProgress['practical']['remaining_to_assign'] }} slot(s) to fill</small>
+                                @else
+                                    <br><small class="text-success"><i class="fas fa-check mr-1"></i>All assigned</small>
+                                @endif
+                            </div>
+                        </div>
+                        @endif
+                    </div>
+                    @endif
+
+                    @if($availableSchedules->isEmpty())
+                        @php
+                            $theoryFull    = isset($classProgress) && $classProgress['theory']['required'] > 0    && $classProgress['theory']['remaining_to_assign'] <= 0;
+                            $practicalFull = isset($classProgress) && $classProgress['practical']['required'] > 0 && $classProgress['practical']['remaining_to_assign'] <= 0;
+                            $allFull       = isset($classProgress)
+                                && ($classProgress['theory']['required'] == 0    || $theoryFull)
+                                && ($classProgress['practical']['required'] == 0 || $practicalFull);
+                        @endphp
+                        <div class="text-center text-muted py-3">
+                            <i class="fas fa-calendar-check fa-2x mb-2 d-block {{ $allFull ? 'text-success' : '' }}"></i>
+                            @if($allFull)
+                                <span class="text-success font-weight-bold">All required classes have been assigned!</span>
+                            @else
+                                No upcoming schedules available to assign.
+                                <small class="d-block">Create new course schedules to assign them here.</small>
+                            @endif
+                        </div>
+                    @else
+                        <form action="{{ route('instructor.student.assign.schedules', $student->id) }}" method="POST">
+                            @csrf
+                            <p class="text-muted small mb-3">Select one or more upcoming sessions to assign to <strong>{{ $student->first_name }}</strong>:</p>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-bordered">
+                                    <thead class="thead-light">
+                                        <tr>
+                                            <th width="40"><input type="checkbox" id="selectAllSchedules"></th>
+                                            <th>Date</th>
+                                            <th>Time</th>
+                                            <th>Type</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach($availableSchedules as $sch)
+                                        <tr>
+                                            <td><input type="checkbox" name="schedule_ids[]" value="{{ $sch->id }}" class="schedule-checkbox"></td>
+                                            <td>
+                                                <strong>{{ \Carbon\Carbon::parse($sch->date)->format('M d, Y') }}</strong>
+                                                <br><small class="text-muted">{{ \Carbon\Carbon::parse($sch->date)->format('l') }}</small>
+                                            </td>
+                                            <td>{{ \Carbon\Carbon::parse($sch->start_time)->format('h:i A') }} – {{ \Carbon\Carbon::parse($sch->end_time)->format('h:i A') }}</td>
+                                            <td><span class="badge badge-{{ $sch->session_type == 'theory' ? 'info' : 'warning' }}">{{ ucfirst($sch->session_type) }}</span></td>
+                                        </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                            <button type="submit" class="btn btn-success btn-sm">
+                                <i class="fas fa-plus mr-1"></i>Assign Selected Classes
+                            </button>
+                        </form>
+                    @endif
+                </div>
+            </div>
+
+            <!-- ===================== Instructor Evaluation ===================== -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-star mr-2"></i>End-of-Course Evaluation
+                    </h6>
+                    @if(isset($evaluation) && $evaluation)
+                        <span class="badge badge-success">Submitted</span>
+                    @else
+                        <span class="badge badge-warning">Pending</span>
+                    @endif
+                </div>
+                <div class="card-body">
+                    @if(isset($evaluation) && $evaluation)
+                        {{-- Show submitted evaluation --}}
+                        <div class="row mb-3">
+                            @foreach([
+                                ['Performance', $evaluation->performance_rating],
+                                ['Behavior',    $evaluation->behavior_rating],
+                                ['Attendance',  $evaluation->attendance_rating],
+                                ['Overall',     $evaluation->overall_rating],
+                            ] as [$label, $rating])
+                            <div class="col-6 col-md-3 text-center mb-3">
+                                <div style="font-size:1.6rem;font-weight:800;color:var(--pd-navy);">{{ $rating }}<span style="font-size:1rem;">/5</span></div>
+                                <small class="text-muted">{{ $label }}</small>
+                            </div>
+                            @endforeach
+                        </div>
+                        @if($evaluation->performance_notes)
+                            <p><strong>Performance Notes:</strong><br>{{ $evaluation->performance_notes }}</p>
+                        @endif
+                        @if($evaluation->behavior_notes)
+                            <p><strong>Behavior Notes:</strong><br>{{ $evaluation->behavior_notes }}</p>
+                        @endif
+                        @if($evaluation->recommendations)
+                            <p><strong>Recommendations:</strong><br>{{ $evaluation->recommendations }}</p>
+                        @endif
+                        <p>
+                            <strong>Certificate Recommendation:</strong>
+                            @if($evaluation->is_recommended_for_certificate)
+                                <span class="badge badge-success"><i class="fas fa-check mr-1"></i>Recommended</span>
+                            @else
+                                <span class="badge badge-danger"><i class="fas fa-times mr-1"></i>Not Recommended</span>
+                            @endif
+                        </p>
+                        <hr>
+                        <button class="btn btn-sm btn-outline-primary" data-toggle="modal" data-target="#evaluationModal">
+                            <i class="fas fa-edit mr-1"></i>Update Evaluation
+                        </button>
+                    @else
+                        <p class="text-muted">No evaluation submitted yet. Submit an evaluation after the student completes the course.</p>
+                        <button class="btn btn-primary btn-sm" data-toggle="modal" data-target="#evaluationModal">
+                            <i class="fas fa-star mr-1"></i>Submit Evaluation
+                        </button>
+                    @endif
+                </div>
+            </div>
+
         </div><!-- /col-lg-8 -->
     </div><!-- /row -->
 </div><!-- /container-fluid -->
 
 <!-- =========================================================
-     MODAL: Mark Theory Complete
+     MODALS: Mark individual theory session as complete
+========================================================= -->
+@if(isset($theorySchedules))
+@foreach($theorySchedules as $sch)
+@php $att = $sessionAttendances[$sch->id] ?? null; @endphp
+@if(!($att && $att->status === 'completed'))
+<div class="modal fade" id="markClassModal{{ $sch->id }}" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header" style="background:var(--pd-navy);color:#fff;">
+                <h5 class="modal-title">
+                    <i class="fas fa-check-circle mr-2"></i>Mark Theory Session as Complete
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
+            </div>
+            <form action="{{ route('instructor.schedule.mark.complete', $sch->id) }}" method="POST">
+                @csrf
+                <div class="modal-body">
+                    <p>
+                        Mark session on <strong>{{ $sch->date->format('M d, Y') }}</strong>
+                        ({{ \Carbon\Carbon::parse($sch->start_time)->format('h:i A') }}
+                        &ndash; {{ \Carbon\Carbon::parse($sch->end_time)->format('h:i A') }}) as completed.
+                    </p>
+                    <p class="text-muted" style="font-size:.85rem;">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        This will create an attendance record for all enrolled students and unlock feedback for them.
+                    </p>
+                    <div class="form-group">
+                        <label for="notes_{{ $sch->id }}">Session Notes <small class="text-muted">(optional)</small></label>
+                        <textarea class="form-control" id="notes_{{ $sch->id }}" name="notes" rows="2"
+                            placeholder="Any notes about this session..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check mr-1"></i>Confirm Complete
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+@endif
+@endforeach
+@endif
+
+<!-- =========================================================
+     MODAL: Instructor Evaluation
+========================================================= -->
+<div class="modal fade" id="evaluationModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header" style="background:var(--pd-navy);color:#fff;">
+                <h5 class="modal-title"><i class="fas fa-star mr-2"></i>Instructor Evaluation</h5>
+                <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
+            </div>
+            <form action="{{ route('instructor.student.evaluation', $student->id) }}" method="POST">
+                @csrf
+                <div class="modal-body">
+                    <p class="text-muted mb-3">Rate <strong>{{ $student->first_name }} {{ $student->last_name }}</strong> from 1 (Poor) to 5 (Excellent).</p>
+
+                    <div class="row">
+                        @foreach([
+                            ['performance_rating', 'Performance', 'How well the student performed in sessions'],
+                            ['behavior_rating',    'Behavior',    'Student conduct and attitude'],
+                            ['attendance_rating',  'Attendance',  'Punctuality and session attendance'],
+                            ['overall_rating',     'Overall',     'Overall evaluation rating'],
+                        ] as [$name, $label, $hint])
+                        <div class="col-md-6 mb-3">
+                            <label class="font-weight-bold">{{ $label }} <span class="text-danger">*</span></label>
+                            <small class="text-muted d-block mb-1">{{ $hint }}</small>
+                            <div class="d-flex" style="gap:.5rem;">
+                                @for($r = 1; $r <= 5; $r++)
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio"
+                                        name="{{ $name }}"
+                                        id="{{ $name }}_{{ $r }}"
+                                        value="{{ $r }}"
+                                        {{ (isset($evaluation) && $evaluation && $evaluation->$name == $r) ? 'checked' : ($r == 3 ? 'checked' : '') }}
+                                        required>
+                                    <label class="form-check-label" for="{{ $name }}_{{ $r }}">{{ $r }}</label>
+                                </div>
+                                @endfor
+                            </div>
+                        </div>
+                        @endforeach
+                    </div>
+                    <hr>
+                    <div class="form-group">
+                        <label class="font-weight-bold">Performance Notes</label>
+                        <textarea class="form-control" name="performance_notes" rows="2"
+                            placeholder="Describe student's technical performance...">{{ isset($evaluation) && $evaluation ? $evaluation->performance_notes : '' }}</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="font-weight-bold">Behavior Notes</label>
+                        <textarea class="form-control" name="behavior_notes" rows="2"
+                            placeholder="Describe student's behavior and attitude...">{{ isset($evaluation) && $evaluation ? $evaluation->behavior_notes : '' }}</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="font-weight-bold">Recommendations</label>
+                        <textarea class="form-control" name="recommendations" rows="2"
+                            placeholder="Any recommendations for the student...">{{ isset($evaluation) && $evaluation ? $evaluation->recommendations : '' }}</textarea>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="recommendCert" name="is_recommended_for_certificate"
+                            value="1"
+                            {{ (!isset($evaluation) || !$evaluation || $evaluation->is_recommended_for_certificate) ? 'checked' : '' }}>
+                        <label class="form-check-label font-weight-bold" for="recommendCert">
+                            <i class="fas fa-certificate mr-1 text-warning"></i>Recommend for Certificate
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save mr-1"></i>Submit Evaluation
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- =========================================================
+     MODAL: Mark Theory Complete (bulk — legacy)
 ========================================================= -->
 <div class="modal fade" id="markTheoryCompleteModal" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog" role="document">
@@ -269,8 +767,8 @@
                     <div class="form-group">
                         <label for="theoryHours">Theory Hours Completed</label>
                         <input type="number" class="form-control" id="theoryHours" name="theory_hours"
-                            value="{{ $student->hours_theory ?? $student->course->theory_hours }}"
-                            min="0" max="{{ $student->course->theory_hours }}" step="0.5" required>
+                            value="{{ $student->hours_theory ?? ($sc ? $sc->theory_hours : 0) }}"
+                            min="0" max="{{ $sc ? $sc->theory_hours : 0 }}" step="0.5" required>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -299,15 +797,15 @@
                 <input type="hidden" name="student_id" value="{{ $student->id }}">
                 <div class="modal-body">
                     <p>
-                        Practical total: <strong>{{ $student->course->practical_hours ?? 0 }} hours</strong>
+                        Practical total: <strong>{{ $sc ? ($sc->practical_hours ?? 0) : 0 }} hours</strong>
                         &nbsp;|&nbsp; Each session = <strong>2 hours</strong>
                     </p>
 
                     <div class="form-group">
                         <label for="totalHoursInput">Total Practical Hours to Assign</label>
                         <input type="number" class="form-control" id="totalHoursInput" name="total_hours"
-                            min="2" max="{{ $student->course->practical_hours ?? 20 }}" step="2"
-                            value="{{ $student->course->practical_hours ?? 6 }}"
+                            min="2" max="{{ $sc ? ($sc->practical_hours ?? 20) : 20 }}" step="2"
+                            value="{{ $sc ? ($sc->practical_hours ?? 6) : 6 }}"
                             placeholder="e.g. 6"
                             required>
                         <small class="form-text text-muted">Must be a multiple of 2. Example: 6 hours → 3 sessions of 2 hours each.</small>
@@ -436,6 +934,11 @@ $(document).ready(function () {
         $('#sessionSlotsContainer').html('');
         $('#saveSessionsBtn').prop('disabled', true);
     });
+});
+
+// Select all schedules checkbox
+document.getElementById('selectAllSchedules')?.addEventListener('change', function () {
+    document.querySelectorAll('.schedule-checkbox').forEach(cb => cb.checked = this.checked);
 });
 </script>
 @endsection

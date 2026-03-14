@@ -144,7 +144,7 @@ class PaymentController extends Controller
                 'invoice_id' => $invoice->id,
                 'payment_method_id' => $validated['payment_method_id'],
                 'amount' => $amount, // Store amount in dollars for database
-                'transaction_id' => new Payment()->generateTransactionId(),
+                'transaction_id' => (new Payment())->generateTransactionId(),
                 'status' => 'pending',
                 'payment_details' => json_encode([
                     'payment_type' => $paymentType,
@@ -225,6 +225,7 @@ class PaymentController extends Controller
                 [
                     'success' => false,
                     'message' => 'Payment processing failed. Please try registering again.',
+                    'error_details' => config('app.debug') ? $e->getMessage() : null,
                 ],
                 500,
             );
@@ -280,16 +281,19 @@ class PaymentController extends Controller
 
             DB::commit();
 
-            return redirect()
-                ->route('registerPage')
-                ->with([
-                    'success' => true,
-                    'message' => 'Payment successful! Your login credentials have been sent to your email.',
-                    'student_name' => $student->first_name,
-                    'course_name' => $course->course_name,
-                ]);
+            session(['payment_result' => [
+                'success'     => true,
+                'message'     => 'Your payment was completed successfully.',
+                'studentName' => $student->first_name . ' ' . $student->last_name,
+                'courseName'  => $course->course_name,
+                'title'       => null,
+            ]]);
+
+            return redirect()->route('payment.result');
         } catch (\Exception $e) {
             DB::rollBack();
+
+            Log::error('handlePaymentSuccess failed: ' . $e->getMessage());
 
             // SAFE CLEANUP on success failure
             if (isset($payment)) {
@@ -301,16 +305,19 @@ class PaymentController extends Controller
                 }
             }
 
-            return redirect()
-                ->route('registerPage')
-                ->with([
-                    'success' => false,
-                    'message' => 'Payment processing failed. Please try registering again.',
-                ]);
+            session(['payment_result' => [
+                'success' => false,
+                'title'   => 'Payment Processing Error',
+                'message' => 'Payment processing failed. Please try registering again. Error: ' . $e->getMessage(),
+                'studentName' => null,
+                'courseName'  => null,
+            ]]);
+
+            return redirect()->route('payment.result');
         }
     }
 
-    public function handlePaymentFailure(Request $request)
+    public function handlePaymentCancel(Request $request)
     {
         $sessionId = $request->get('session_id');
 
@@ -334,12 +341,15 @@ class PaymentController extends Controller
             ]);
         }
 
-        return redirect()
-            ->route('registerPage')
-            ->with([
-                'success' => false,
-                'message' => 'Payment was cancelled. You can register again with the same email address.',
-            ]);
+        session(['payment_result' => [
+            'success'     => false,
+            'title'       => 'Payment Cancelled',
+            'message'     => 'Your payment was cancelled. You can register again using the same email address.',
+            'studentName' => null,
+            'courseName'  => null,
+        ]]);
+
+        return redirect()->route('payment.result');
     }
 
     /**

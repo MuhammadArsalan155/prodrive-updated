@@ -6,6 +6,7 @@ use App\Models\Course;
 use App\Models\CourseSchedule;
 use App\Models\Installment;
 use App\Models\ProgressReport;
+use App\Models\SessionAttendance;
 use App\Models\Student;
 use App\Models\Announcement;
 use App\Models\FeedbackResponse;
@@ -43,6 +44,7 @@ class StudentDashboardController extends Controller
 
             // Get all dashboard data
             $upcomingSchedules = $this->getUpcomingSchedules($student);
+            $pastSchedules     = $this->getPastSchedules($student);
             $pendingInstallments = $this->getPendingInstallments($student);
             $courseProgress = $this->calculateCourseProgress($student);
             $announcements = $this->getRecentAnnouncements($student);
@@ -55,6 +57,7 @@ class StudentDashboardController extends Controller
             return view('dashboards.student-dashboard', compact(
                 'student',
                 'upcomingSchedules',
+                'pastSchedules',
                 'pendingInstallments',
                 'courseProgress',
                 'announcements',
@@ -91,29 +94,58 @@ class StudentDashboardController extends Controller
 
     protected function getUpcomingSchedules(Student $student)
     {
-        return CourseSchedule::with('instructor')
-            ->where('course_id', $student->course_id)
-            ->where('date', '>=', now())
-            // Add condition to filter schedules where student is registered
-            ->where(function($query) use ($student) {
-                $query->where('id', $student->practical_schedule_id)
-                      ->orWhere('id', $student->theory_schedule_id);
-            })
+        // Only show schedules explicitly assigned to this student (via pivot table).
+        // Populated at registration and when instructor assigns next classes.
+        $attendedIds = SessionAttendance::where('student_id', $student->id)
+            ->pluck('course_schedule_id');
+
+        return $student->assignedSchedules()
+            ->with('instructor')
+            ->where('date', '>=', now()->toDateString())
+            ->where('is_active', true)
+            ->whereNotIn('course_schedules.id', $attendedIds)
             ->orderBy('date')
             ->orderBy('start_time')
-            ->take(10)
             ->get()
             ->map(function ($schedule) {
                 return [
-                    'id' => $schedule->id,
-                    'date' => Carbon::parse($schedule->date)->format('M d, Y'),
-                    'start_time' => Carbon::parse($schedule->start_time)->format('h:i A'),
-                    'end_time' => Carbon::parse($schedule->end_time)->format('h:i A'),
-                    'session_type' => ucfirst($schedule->session_type),
-                    'instructor_name' => $schedule->instructor->instructor_name,
-                    'day_name' => Carbon::parse($schedule->date)->format('l'),
+                    'id'             => $schedule->id,
+                    'date'           => Carbon::parse($schedule->date)->format('M d, Y'),
+                    'start_time'     => Carbon::parse($schedule->start_time)->format('h:i A'),
+                    'end_time'       => Carbon::parse($schedule->end_time)->format('h:i A'),
+                    'session_type'   => ucfirst($schedule->session_type),
+                    'instructor_name'=> $schedule->instructor->instructor_name ?? 'N/A',
+                    'day_name'       => Carbon::parse($schedule->date)->format('l'),
                 ];
             });
+    }
+
+    protected function getPastSchedules(Student $student)
+    {
+        // Only show sessions the student actually attended (via session_attendance)
+        return SessionAttendance::where('student_id', $student->id)
+            ->where('status', 'completed')
+            ->with(['schedule.instructor'])
+            ->orderBy('completed_at', 'desc')
+            ->take(20)
+            ->get()
+            ->map(function ($attendance) {
+                $schedule = $attendance->schedule;
+                if (!$schedule) return null;
+                return [
+                    'id'             => $schedule->id,
+                    'date'           => Carbon::parse($schedule->date)->format('M d, Y'),
+                    'start_time'     => Carbon::parse($schedule->start_time)->format('h:i A'),
+                    'end_time'       => Carbon::parse($schedule->end_time)->format('h:i A'),
+                    'session_type'   => ucfirst($attendance->class_type ?? $schedule->session_type),
+                    'instructor_name'=> $schedule->instructor->instructor_name ?? 'N/A',
+                    'day_name'       => Carbon::parse($schedule->date)->format('l'),
+                    'class_order'    => $attendance->class_order,
+                    'completed_at'   => Carbon::parse($attendance->completed_at)->format('M d, Y'),
+                ];
+            })
+            ->filter() // remove nulls from missing schedules
+            ->values();
     }
 
     protected function getPendingInstallments(Student $student)
@@ -153,6 +185,18 @@ class StudentDashboardController extends Controller
         $completedLessonPlans = $this->getCompletedLessonPlansCount($student);
         $lessonPlanProgress = $totalLessonPlans > 0 ? round(($completedLessonPlans / $totalLessonPlans) * 100, 2) : 0;
 
+        // Class count progress (from session_attendance)
+        $completedTheoryClasses   = SessionAttendance::where('student_id', $student->id)
+            ->where('class_type', 'theory')
+            ->where('status', 'completed')
+            ->count();
+        $completedPracticalClasses = SessionAttendance::where('student_id', $student->id)
+            ->where('class_type', 'practical')
+            ->where('status', 'completed')
+            ->count();
+        $totalTheoryClasses   = $course->total_theory_classes   ?? 0;
+        $totalPracticalClasses = $course->total_practical_classes ?? 0;
+
         return [
             'total_hours' => $totalHours,
             'attended_hours' => $attendedHours,
@@ -173,6 +217,16 @@ class StudentDashboardController extends Controller
                 'total' => $totalLessonPlans,
                 'completed' => $completedLessonPlans,
                 'percentage' => $lessonPlanProgress,
+            ],
+            'theory_classes' => [
+                'completed'  => $completedTheoryClasses,
+                'required'   => $totalTheoryClasses,
+                'percentage' => $totalTheoryClasses > 0 ? min(100, round(($completedTheoryClasses / $totalTheoryClasses) * 100)) : 0,
+            ],
+            'practical_classes' => [
+                'completed'  => $completedPracticalClasses,
+                'required'   => $totalPracticalClasses,
+                'percentage' => $totalPracticalClasses > 0 ? min(100, round(($completedPracticalClasses / $totalPracticalClasses) * 100)) : 0,
             ],
         ];
     }
@@ -206,29 +260,37 @@ class StudentDashboardController extends Controller
 
     protected function getPendingFeedback(Student $student)
     {
-        $attendedClasses = CourseSchedule::where('course_id', $student->course_id)
-            ->where('date', '<', now())
-            ->orderBy('date', 'desc')
+        // Source of truth: session_attendance records marked as completed for this student
+        $completedSessions = SessionAttendance::where('student_id', $student->id)
+            ->where('status', 'completed')
+            ->with('schedule.instructor')
             ->get();
 
         $pendingFeedback = [];
 
-        foreach ($attendedClasses as $schedule) {
+        foreach ($completedSessions as $attendance) {
+            // Check if student already submitted feedback for this class_order + class_type
             $feedbackExists = FeedbackResponse::where('user_id', $student->id)
                 ->where('user_type', 'student')
                 ->where('course_id', $student->course_id)
-                ->whereDate('created_at', $schedule->date)
+                ->where('class_order', $attendance->class_order)
+                ->where('class_type', $attendance->class_type)
                 ->exists();
 
             if (!$feedbackExists) {
+                $schedule = $attendance->schedule;
+                if (!$schedule) continue;
+
                 $pendingFeedback[] = [
-                    'schedule_id' => $schedule->id,
-                    'course_name' => $student->course->course_name,
-                    'instructor_name' => $schedule->instructor->instructor_name,
-                    'session_date' => Carbon::parse($schedule->date)->format('M d, Y'),
-                    'session_type' => ucfirst($schedule->session_type),
-                    'status' => 'Feedback Pending',
-                    'days_ago' => Carbon::parse($schedule->date)->diffInDays(now()),
+                    'attendance_id'  => $attendance->id,
+                    'schedule_id'    => $schedule->id,
+                    'course_name'    => optional($student->course)->course_name ?? 'N/A',
+                    'instructor_name'=> optional(optional($schedule)->instructor)->instructor_name ?? 'N/A',
+                    'session_date'   => Carbon::parse($schedule->date)->format('M d, Y'),
+                    'session_type'   => ucfirst($attendance->class_type ?? $schedule->session_type),
+                    'class_order'    => $attendance->class_order,
+                    'status'         => 'Feedback Pending',
+                    'days_ago'       => Carbon::parse($schedule->date)->diffInDays(now()),
                 ];
             }
         }
@@ -330,27 +392,31 @@ class StudentDashboardController extends Controller
     }
 
     // Feedback Methods
-    public function getAvailableFeedback($scheduleId)
+
+    /**
+     * Load feedback questions for a specific attendance record (identified by attendanceId).
+     * The attendance record tells us class_order + class_type so we can find the right lesson plan.
+     */
+    public function getAvailableFeedback($attendanceId)
     {
         try {
-            $student = Auth::guard('student')->user();
-            $schedule = CourseSchedule::findOrFail($scheduleId);
+            $student   = Auth::guard('student')->user();
+            $attendance = SessionAttendance::findOrFail($attendanceId);
 
-            if ($schedule->course_id !== $student->course_id) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Unauthorized access to this schedule.'
-                ]);
+            if ($attendance->student_id !== $student->id) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized.']);
             }
 
+            // Find the lesson plan for this class_order + class_type
             $lessonPlan = $student->course->lessonPlans()
-                ->wherePivot('class_type', $schedule->session_type)
+                ->wherePivot('class_type', $attendance->class_type)
+                ->wherePivot('class_order', $attendance->class_order)
                 ->first();
 
             if (!$lessonPlan) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'No lesson plan found for this session.'
+                    'message' => 'No lesson plan found for class #' . $attendance->class_order . ' (' . $attendance->class_type . ').',
                 ]);
             }
 
@@ -359,33 +425,42 @@ class StudentDashboardController extends Controller
                 ->orderBy('display_order')
                 ->get();
 
+            $schedule = $attendance->schedule;
+
             return response()->json([
-                'success' => true,
+                'success'     => true,
                 'lesson_plan' => $lessonPlan,
-                'questions' => $feedbackQuestions,
-                'schedule' => $schedule
+                'questions'   => $feedbackQuestions,
+                'schedule'    => $schedule,
+                'class_order' => $attendance->class_order,
+                'class_type'  => $attendance->class_type,
             ]);
         } catch (\Exception $e) {
             Log::error('Get Available Feedback Error: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to load feedback form.'
-            ], 500);
+            return response()->json(['success' => false, 'message' => 'Failed to load feedback form.'], 500);
         }
     }
 
-    public function submitFeedback(Request $request, $scheduleId)
+    /**
+     * Submit student feedback for an attendance record.
+     * Derives class_order, class_type, and course_lesson_plan_id from the attendance record.
+     */
+    public function submitFeedback(Request $request, $attendanceId)
     {
         try {
-            $student = Auth::guard('student')->user();
-            $schedule = CourseSchedule::findOrFail($scheduleId);
+            $student    = Auth::guard('student')->user();
+            $attendance = SessionAttendance::findOrFail($attendanceId);
 
-            if ($schedule->course_id !== $student->course_id) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Unauthorized access to this schedule.'
-                ]);
+            if ($attendance->student_id !== $student->id) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized.']);
             }
+
+            // Look up the course_lesson_plan pivot row so we can store its ID
+            $clp = DB::table('course_lesson_plan')
+                ->where('course_id', $student->course_id)
+                ->where('class_type', $attendance->class_type)
+                ->where('class_order', $attendance->class_order)
+                ->first();
 
             $responses = $request->input('responses', []);
 
@@ -393,27 +468,23 @@ class StudentDashboardController extends Controller
             foreach ($responses as $questionId => $response) {
                 FeedbackResponse::create([
                     'feedback_question_id' => $questionId,
-                    'course_id' => $student->course_id,
-                    'user_id' => $student->id,
-                    'user_type' => 'student',
-                    'response' => $response['answer'] ?? null,
-                    'comments' => $response['comments'] ?? null,
-                    'class_order' => 1,
+                    'course_id'            => $student->course_id,
+                    'user_id'              => $student->id,
+                    'user_type'            => 'student',
+                    'response'             => $response['answer'] ?? null,
+                    'comments'             => $response['comments'] ?? null,
+                    'class_order'          => $attendance->class_order,
+                    'class_type'           => $attendance->class_type,
+                    'course_lesson_plan_id'=> $clp ? $clp->id : null,
                 ]);
             }
             DB::commit();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Feedback submitted successfully!'
-            ]);
+            return response()->json(['success' => true, 'message' => 'Feedback submitted successfully!']);
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Submit Feedback Error: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to submit feedback.'
-            ], 500);
+            return response()->json(['success' => false, 'message' => 'Failed to submit feedback.'], 500);
         }
     }
 

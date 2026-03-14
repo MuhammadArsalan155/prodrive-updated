@@ -65,6 +65,8 @@
     .pill-info    { background: #cffafe; color: #155e75; }
     .pill-secondary { background: #f1f5f9; color: #475569; }
     .pill-purple  { background: #ede9fe; color: #5b21b6; }
+    .pill-green   { background: #d1fae5; color: #065f46; }
+    .pill-red     { background: #fee2e2; color: #991b1b; }
 
     /* Section cards */
     .section-card {
@@ -389,6 +391,7 @@
         <a href="#sec-hours"><i class="fas fa-clock"></i> Working Hours</a>
         <a href="#sec-payment"><i class="fas fa-credit-card"></i> Payment</a>
         <a href="#sec-completion"><i class="fas fa-flag-checkered"></i> Completion</a>
+        <a href="#sec-evaluation"><i class="fas fa-star"></i> Evaluation</a>
     </div>
 
     {{-- Summary Stats Row --}}
@@ -1419,6 +1422,155 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    {{-- ============================================================
+         SECTION 10 — INSTRUCTOR EVALUATION
+    ============================================================ --}}
+    <div class="section-card" id="sec-evaluation">
+        <div class="card-header-custom">
+            <div class="section-icon" style="background:#f59e0b;"><i class="fas fa-star"></i></div>
+            <div>
+                <div class="section-title">Instructor Evaluation</div>
+                <div class="section-subtitle">End-of-course performance evaluation submitted by instructor</div>
+            </div>
+        </div>
+        <div class="card-body-custom">
+            @if(isset($instructorEvaluation) && $instructorEvaluation)
+                <div class="row mb-4">
+                    @foreach([
+                        ['Performance', $instructorEvaluation->performance_rating, '#3b82f6'],
+                        ['Behavior',    $instructorEvaluation->behavior_rating,    '#10b981'],
+                        ['Attendance',  $instructorEvaluation->attendance_rating,  '#8b5cf6'],
+                        ['Overall',     $instructorEvaluation->overall_rating,     '#f59e0b'],
+                    ] as [$label, $rating, $color])
+                    <div class="col-6 col-md-3 text-center mb-3">
+                        <div style="font-size:2rem;font-weight:800;color:{{ $color }};">
+                            {{ $rating }}<span style="font-size:1rem;color:#6b7280;">/5</span>
+                        </div>
+                        <div style="font-size:.85rem;color:#374151;font-weight:600;">{{ $label }}</div>
+                        <div style="font-size:.75rem;color:#9ca3af;">
+                            @php $stars = ''; for($s=1;$s<=5;$s++) $stars .= $s<=$rating ? '★' : '☆'; echo $stars; @endphp
+                        </div>
+                    </div>
+                    @endforeach
+                </div>
+
+                <div class="row">
+                    @if($instructorEvaluation->performance_notes)
+                    <div class="col-md-4 mb-3">
+                        <div style="font-weight:600;font-size:.85rem;color:#374151;margin-bottom:.25rem;">Performance Notes</div>
+                        <div style="font-size:.85rem;color:#4b5563;background:#f9fafb;padding:.75rem;border-radius:.5rem;">
+                            {{ $instructorEvaluation->performance_notes }}
+                        </div>
+                    </div>
+                    @endif
+                    @if($instructorEvaluation->behavior_notes)
+                    <div class="col-md-4 mb-3">
+                        <div style="font-weight:600;font-size:.85rem;color:#374151;margin-bottom:.25rem;">Behavior Notes</div>
+                        <div style="font-size:.85rem;color:#4b5563;background:#f9fafb;padding:.75rem;border-radius:.5rem;">
+                            {{ $instructorEvaluation->behavior_notes }}
+                        </div>
+                    </div>
+                    @endif
+                    @if($instructorEvaluation->recommendations)
+                    <div class="col-md-4 mb-3">
+                        <div style="font-weight:600;font-size:.85rem;color:#374151;margin-bottom:.25rem;">Recommendations</div>
+                        <div style="font-size:.85rem;color:#4b5563;background:#f9fafb;padding:.75rem;border-radius:.5rem;">
+                            {{ $instructorEvaluation->recommendations }}
+                        </div>
+                    </div>
+                    @endif
+                </div>
+
+                <div class="d-flex align-items-center mt-2">
+                    <strong style="font-size:.85rem;margin-right:.5rem;">Certificate Recommendation:</strong>
+                    @if($instructorEvaluation->is_recommended_for_certificate)
+                        <span class="status-pill pill-green"><i class="fas fa-certificate"></i> Recommended</span>
+                    @else
+                        <span class="status-pill pill-red"><i class="fas fa-times"></i> Not Recommended</span>
+                    @endif
+                    @if($instructorEvaluation->instructor)
+                        <span class="ml-3" style="font-size:.8rem;color:#6b7280;">
+                            by {{ $instructorEvaluation->instructor->instructor_name }}
+                            &mdash; {{ $instructorEvaluation->updated_at->format('M d, Y') }}
+                        </span>
+                    @endif
+                </div>
+
+                {{-- Session Attendance Log --}}
+                @if(isset($sessionAttendances) && $sessionAttendances->count() > 0)
+                <hr>
+                <h6 class="font-weight-bold mb-3" style="font-size:.9rem;">Session Attendance Log</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered mb-0">
+                        <thead class="thead-light">
+                            <tr>
+                                <th>Type</th>
+                                <th>Class #</th>
+                                <th>Date</th>
+                                <th>Notes</th>
+                                <th>Completed At</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($sessionAttendances as $att)
+                            <tr>
+                                <td>
+                                    <span class="badge badge-{{ $att->class_type === 'theory' ? 'info' : 'success' }}">
+                                        {{ ucfirst($att->class_type) }}
+                                    </span>
+                                </td>
+                                <td>{{ $att->class_order }}</td>
+                                <td>{{ $att->schedule ? $att->schedule->date->format('M d, Y') : 'N/A' }}</td>
+                                <td><small>{{ $att->notes ?? '—' }}</small></td>
+                                <td><small>{{ $att->completed_at ? $att->completed_at->format('M d, Y h:i A') : '—' }}</small></td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+                @endif
+            @else
+                <div class="text-center py-4 text-muted">
+                    <i class="fas fa-star fa-2x mb-2 d-block" style="color:#d1d5db;"></i>
+                    <p>No instructor evaluation submitted yet for this course.</p>
+                </div>
+                {{-- Still show session attendance if exists --}}
+                @if(isset($sessionAttendances) && $sessionAttendances->count() > 0)
+                <hr>
+                <h6 class="font-weight-bold mb-3" style="font-size:.9rem;">Session Attendance Log</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered mb-0">
+                        <thead class="thead-light">
+                            <tr>
+                                <th>Type</th>
+                                <th>Class #</th>
+                                <th>Date</th>
+                                <th>Notes</th>
+                                <th>Completed At</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($sessionAttendances as $att)
+                            <tr>
+                                <td>
+                                    <span class="badge badge-{{ $att->class_type === 'theory' ? 'info' : 'success' }}">
+                                        {{ ucfirst($att->class_type) }}
+                                    </span>
+                                </td>
+                                <td>{{ $att->class_order }}</td>
+                                <td>{{ $att->schedule ? $att->schedule->date->format('M d, Y') : 'N/A' }}</td>
+                                <td><small>{{ $att->notes ?? '—' }}</small></td>
+                                <td><small>{{ $att->completed_at ? $att->completed_at->format('M d, Y h:i A') : '—' }}</small></td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+                @endif
+            @endif
         </div>
     </div>
 

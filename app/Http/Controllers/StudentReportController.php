@@ -6,8 +6,10 @@ use App\Models\Certificate;
 use App\Models\Course;
 use App\Models\CourseSchedule;
 use App\Models\FeedbackResponse;
+use App\Models\InstructorEvaluation;
 use App\Models\PracticalSession;
 use App\Models\ProgressReport;
+use App\Models\SessionAttendance;
 use App\Models\Installment;
 use App\Models\Invoice;
 use App\Models\Payment;
@@ -97,6 +99,23 @@ class StudentReportController extends Controller
             ->orderBy('session_number')
             ->get();
 
+        // Session attendance records (theory class completions with class_order)
+        $sessionAttendances = SessionAttendance::where('student_id', $id)
+            ->where('status', 'completed')
+            ->with('schedule')
+            ->orderBy('class_type')
+            ->orderBy('class_order')
+            ->get();
+
+        // Instructor evaluation for this student + course
+        $instructorEvaluation = null;
+        if ($student->course_id) {
+            $instructorEvaluation = InstructorEvaluation::where('student_id', $id)
+                ->where('course_id', $student->course_id)
+                ->with('instructor')
+                ->first();
+        }
+
         // Practical schedule duration in hours (legacy fallback)
         $practicalDuration = null;
         if ($student->practicalSchedule) {
@@ -136,6 +155,8 @@ class StudentReportController extends Controller
             'certificate',
             'practicalDuration',
             'practicalSessions',
+            'sessionAttendances',
+            'instructorEvaluation',
             'totalBilled',
             'totalPaid',
             'pendingPayments',
@@ -208,6 +229,21 @@ class StudentReportController extends Controller
             ->orderBy('session_number')
             ->get();
 
+        $sessionAttendances = SessionAttendance::where('student_id', $id)
+            ->where('status', 'completed')
+            ->with('schedule')
+            ->orderBy('class_type')
+            ->orderBy('class_order')
+            ->get();
+
+        $instructorEvaluation = null;
+        if ($student->course_id) {
+            $instructorEvaluation = InstructorEvaluation::where('student_id', $id)
+                ->where('course_id', $student->course_id)
+                ->with('instructor')
+                ->first();
+        }
+
         $practicalDuration = null;
         if ($student->practicalSchedule) {
             $start = Carbon::parse($student->practicalSchedule->start_time);
@@ -244,6 +280,8 @@ class StudentReportController extends Controller
             'certificate',
             'practicalDuration',
             'practicalSessions',
+            'sessionAttendances',
+            'instructorEvaluation',
             'totalBilled',
             'totalPaid',
             'pendingPayments',
