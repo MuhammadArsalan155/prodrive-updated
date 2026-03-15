@@ -125,14 +125,14 @@
                             $pDone  = $student->hours_practical ?? 0;
                             $pPct   = min(100, round(($pDone / max($pTotal, 1)) * 100));
                         @endphp
-                        <small class="text-muted">Theory Hours: {{ $tDone }}/{{ $tTotal }}</small>
+                        {{-- <small class="text-muted">Theory Hours: {{ $tDone }}/{{ $tTotal }}</small>
                         <div class="progress mb-2" style="height:10px;">
                             <div class="progress-bar bg-info" role="progressbar" style="width:{{ $tPct }}%"></div>
                         </div>
                         <small class="text-muted">Practical Hours: {{ $pDone }}/{{ $pTotal }}</small>
                         <div class="progress mb-3" style="height:10px;">
                             <div class="progress-bar bg-success" role="progressbar" style="width:{{ $pPct }}%"></div>
-                        </div>
+                        </div> --}}
 
                         {{-- Class Count Progress --}}
                         @if(isset($classProgress))
@@ -233,38 +233,38 @@
                 </div>
             </div>
 
-            <!-- ===================== Log New Session ===================== -->
+            <!-- ===================== Schedule Future Session ===================== -->
             @php
-                $canLogTheory    = in_array($student->theory_status, ['pending','in_progress']);
-                $canLogPractical = $student->theory_status === 'completed' && in_array($student->practical_status, ['pending','assigned']);
-                $showLogCard     = $canLogTheory || $canLogPractical;
+                $canScheduleTheory    = in_array($student->theory_status, ['pending','in_progress']);
+                $canSchedulePractical = $student->theory_status === 'completed' && in_array($student->practical_status, ['pending','assigned']);
+                $showScheduleCard     = $canScheduleTheory || $canSchedulePractical;
             @endphp
-            @if($showLogCard)
-            <div class="card shadow mb-4 border-left-primary">
+            @if($showScheduleCard)
+            <div class="card shadow mb-4 border-left-success">
                 <div class="card-header py-3 d-flex align-items-center justify-content-between">
-                    <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-plus-circle mr-2"></i>Log Completed Session</h6>
-                    <span class="badge badge-primary">Quick Entry</span>
+                    <h6 class="m-0 font-weight-bold text-success"><i class="fas fa-calendar-plus mr-2"></i>Schedule Upcoming Session</h6>
+                    <span class="badge badge-success">New Session</span>
                 </div>
                 <div class="card-body">
-                    <p class="text-muted small mb-3">Record a theory or practical class that has already been completed with this student.</p>
-                    <form action="{{ route('instructor.student.log.session', $student->id) }}" method="POST">
+                    <p class="text-muted small mb-3">Create a scheduled session for <strong>{{ $student->first_name }}</strong>. It will appear in their Upcoming Classes tab.</p>
+                    <form action="{{ route('instructor.student.create.session', $student->id) }}" method="POST">
                         @csrf
                         <div class="form-row">
                             <div class="form-group col-md-3">
                                 <label class="small font-weight-bold">Session Type <span class="text-danger">*</span></label>
                                 <select name="session_type" class="form-control form-control-sm" required>
-                                    @if($canLogTheory)
+                                    @if($canScheduleTheory)
                                         <option value="theory" selected>Theory</option>
                                     @endif
-                                    @if($canLogPractical)
-                                        <option value="practical" {{ !$canLogTheory ? 'selected' : '' }}>Practical</option>
+                                    @if($canSchedulePractical)
+                                        <option value="practical" {{ !$canScheduleTheory ? 'selected' : '' }}>Practical</option>
                                     @endif
                                 </select>
                             </div>
                             <div class="form-group col-md-3">
                                 <label class="small font-weight-bold">Date <span class="text-danger">*</span></label>
                                 <input type="date" name="session_date" class="form-control form-control-sm"
-                                    value="{{ now()->toDateString() }}" max="{{ now()->toDateString() }}" required>
+                                    value="{{ now()->addDay()->toDateString() }}" min="{{ now()->toDateString() }}" required>
                             </div>
                             <div class="form-group col-md-2">
                                 <label class="small font-weight-bold">Start Time <span class="text-danger">*</span></label>
@@ -277,19 +277,26 @@
                                     value="{{ now()->addHour()->format('H:i') }}" required>
                             </div>
                             <div class="form-group col-md-2 d-flex align-items-end">
-                                <button type="submit" class="btn btn-primary btn-sm w-100">
-                                    <i class="fas fa-check mr-1"></i>Log Session
+                                <button type="submit" class="btn btn-success btn-sm w-100">
+                                    <i class="fas fa-calendar-check mr-1"></i>Schedule
                                 </button>
                             </div>
-                        </div>
-                        <div class="form-group mb-0">
-                            <label class="small font-weight-bold">Notes (optional)</label>
-                            <input type="text" name="notes" class="form-control form-control-sm" placeholder="Any notes about this session...">
                         </div>
                     </form>
                 </div>
             </div>
             @endif
+
+            {{-- ===================== Log New Session (commented out — not needed) =====================
+            @php
+                $canLogTheory    = in_array($student->theory_status, ['pending','in_progress']);
+                $canLogPractical = $student->theory_status === 'completed' && in_array($student->practical_status, ['pending','assigned']);
+                $showLogCard     = $canLogTheory || $canLogPractical;
+            @endphp
+            @if($showLogCard)
+            <div class="card shadow mb-4 border-left-primary">...</div>
+            @endif
+            ===================== --}}
 
             <!-- ===================== Theory Sessions (per-class mark complete) ===================== -->
             @if(isset($theorySchedules) && $theorySchedules->count() > 0)
@@ -349,6 +356,84 @@
                                             <button class="btn btn-sm btn-outline-success"
                                                 data-toggle="modal"
                                                 data-target="#markClassModal{{ $sch->id }}">
+                                                <i class="fas fa-check-circle mr-1"></i>Mark Done
+                                            </button>
+                                        @else
+                                            <span class="text-success" style="font-size:.8rem;"><i class="fas fa-check"></i> Done</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="px-3 py-2">
+                        <small class="text-muted"><i class="fas fa-info-circle mr-1"></i>
+                            Marking a session as done creates an attendance record and unlocks feedback for the student.
+                        </small>
+                    </div>
+                </div>
+            </div>
+            @endif
+
+            <!-- ===================== Practical Sessions (assigned — mark complete) ===================== -->
+            @if(isset($practicalSchedules) && $practicalSchedules->count() > 0)
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-warning"><i class="fas fa-car mr-2"></i>Practical Sessions</h6>
+                    <span class="badge badge-warning">{{ $practicalSchedules->count() }} scheduled</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-bordered mb-0">
+                            <thead class="thead-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Date</th>
+                                    <th>Time</th>
+                                    <th>Class&nbsp;Order</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($practicalSchedules as $i => $sch)
+                                @php
+                                    $att  = $sessionAttendances[$sch->id] ?? null;
+                                    $done = $att && $att->status === 'completed';
+                                @endphp
+                                <tr class="{{ $done ? 'table-success' : '' }}">
+                                    <td>{{ $i + 1 }}</td>
+                                    <td>{{ $sch->date->format('M d, Y') }}</td>
+                                    <td>
+                                        {{ \Carbon\Carbon::parse($sch->start_time)->format('h:i A') }}
+                                        &ndash;
+                                        {{ \Carbon\Carbon::parse($sch->end_time)->format('h:i A') }}
+                                    </td>
+                                    <td>
+                                        @if($att)
+                                            <span class="badge badge-secondary">Class {{ $att->class_order }}</span>
+                                        @else
+                                            <span class="text-muted">—</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @if($done)
+                                            <span class="badge badge-success"><i class="fas fa-check mr-1"></i>Completed</span>
+                                            @if($att->completed_at)
+                                                <small class="text-muted d-block">{{ $att->completed_at->format('M d, Y') }}</small>
+                                            @endif
+                                        @elseif($sch->date->isFuture())
+                                            <span class="badge badge-light text-muted">Upcoming</span>
+                                        @else
+                                            <span class="badge badge-warning">Pending Mark</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @if(!$done)
+                                            <button class="btn btn-sm btn-outline-success"
+                                                data-toggle="modal"
+                                                data-target="#markPracticalModal{{ $sch->id }}">
                                                 <i class="fas fa-check-circle mr-1"></i>Mark Done
                                             </button>
                                         @else
@@ -562,6 +647,112 @@
                 </div>
             </div>
 
+            <!-- ===================== Reschedule Requests ===================== -->
+            @if(isset($rescheduleRequests) && $rescheduleRequests->count() > 0)
+            <div class="card shadow mb-4 border-left-warning">
+                <div class="card-header py-3 d-flex align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-warning">
+                        <i class="fas fa-exchange-alt mr-2"></i>Reschedule Requests
+                    </h6>
+                    <span class="badge badge-warning">{{ $rescheduleRequests->count() }} pending</span>
+                </div>
+                <div class="card-body p-0">
+                    @foreach($rescheduleRequests as $rr)
+                    <div class="p-3 border-bottom">
+                        <div class="row align-items-center">
+                            <div class="col-md-5">
+                                <small class="text-muted text-uppercase font-weight-bold">Current Session</small>
+                                <div class="font-weight-bold">
+                                    {{ ucfirst($rr->schedule->session_type) }} &mdash;
+                                    {{ \Carbon\Carbon::parse($rr->schedule->date)->format('M d, Y') }}
+                                </div>
+                                <small class="text-muted">
+                                    {{ \Carbon\Carbon::parse($rr->schedule->start_time)->format('h:i A') }}
+                                    &ndash;
+                                    {{ \Carbon\Carbon::parse($rr->schedule->end_time)->format('h:i A') }}
+                                </small>
+                            </div>
+                            <div class="col-md-1 text-center">
+                                <i class="fas fa-arrow-right text-warning"></i>
+                            </div>
+                            <div class="col-md-4">
+                                <small class="text-muted text-uppercase font-weight-bold">Requested Time</small>
+                                <div class="font-weight-bold text-warning">
+                                    {{ \Carbon\Carbon::parse($rr->requested_date)->format('M d, Y') }}
+                                </div>
+                                <small class="text-muted">
+                                    {{ \Carbon\Carbon::parse($rr->requested_start_time)->format('h:i A') }}
+                                    @if($rr->requested_end_time)
+                                        &ndash; {{ \Carbon\Carbon::parse($rr->requested_end_time)->format('h:i A') }}
+                                    @endif
+                                </small>
+                                @if($rr->reason)
+                                    <br><small class="text-muted"><i class="fas fa-comment mr-1"></i>{{ $rr->reason }}</small>
+                                @endif
+                            </div>
+                            <div class="col-md-2 text-right">
+                                <button class="btn btn-sm btn-success mb-1 w-100"
+                                    data-toggle="modal"
+                                    data-target="#handleRescheduleModal{{ $rr->id }}"
+                                    data-action="approve">
+                                    <i class="fas fa-check mr-1"></i>Approve
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger w-100"
+                                    data-toggle="modal"
+                                    data-target="#handleRescheduleModal{{ $rr->id }}"
+                                    data-action="reject">
+                                    <i class="fas fa-times mr-1"></i>Reject
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Handle Reschedule Modal -->
+                    <div class="modal fade" id="handleRescheduleModal{{ $rr->id }}" tabindex="-1" role="dialog">
+                        <div class="modal-dialog" role="document">
+                            <div class="modal-content">
+                                <form action="{{ route('instructor.reschedule.handle', $rr->id) }}" method="POST">
+                                    @csrf
+                                    <input type="hidden" name="action" id="rescheduleAction{{ $rr->id }}" value="approve">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">
+                                            <i class="fas fa-exchange-alt mr-2"></i>Handle Reschedule Request
+                                        </h5>
+                                        <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="alert alert-light border mb-3">
+                                            <strong>{{ $student->first_name }}</strong> requests to move
+                                            <strong>{{ ucfirst($rr->schedule->session_type) }}</strong> session from
+                                            <strong>{{ \Carbon\Carbon::parse($rr->schedule->date)->format('M d, Y') }}</strong>
+                                            to
+                                            <strong>{{ \Carbon\Carbon::parse($rr->requested_date)->format('M d, Y') }}</strong>
+                                            at <strong>{{ \Carbon\Carbon::parse($rr->requested_start_time)->format('h:i A') }}</strong>.
+                                            @if($rr->reason)
+                                                <br><em class="text-muted">Reason: {{ $rr->reason }}</em>
+                                            @endif
+                                        </div>
+                                        <div class="form-group mb-0">
+                                            <label class="small font-weight-bold">Note to student (optional)</label>
+                                            <textarea name="instructor_note" class="form-control form-control-sm" rows="2"
+                                                placeholder="Add a note for the student..."></textarea>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="close-modal btn btn-secondary btn-sm" data-dismiss="modal">Cancel</button>
+                                        <button type="submit" id="rescheduleSubmitBtn{{ $rr->id }}" class="btn btn-success btn-sm">
+                                            <i class="fas fa-check mr-1"></i>Approve
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    @endforeach
+                </div>
+            </div>
+            @endif
+
             <!-- ===================== Instructor Evaluation ===================== -->
             <div class="card shadow mb-4">
                 <div class="card-header py-3 d-flex align-items-center justify-content-between">
@@ -655,6 +846,51 @@
                     <div class="form-group">
                         <label for="notes_{{ $sch->id }}">Session Notes <small class="text-muted">(optional)</small></label>
                         <textarea class="form-control" id="notes_{{ $sch->id }}" name="notes" rows="2"
+                            placeholder="Any notes about this session..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check mr-1"></i>Confirm Complete
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+@endif
+@endforeach
+@endif
+
+<!-- =========================================================
+     MODALS: Mark individual practical session as complete
+========================================================= -->
+@if(isset($practicalSchedules))
+@foreach($practicalSchedules as $sch)
+@php $att = $sessionAttendances[$sch->id] ?? null; @endphp
+@if(!($att && $att->status === 'completed'))
+<div class="modal fade" id="markPracticalModal{{ $sch->id }}" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header" style="background:var(--pd-teal);color:#fff;">
+                <h5 class="modal-title">
+                    <i class="fas fa-car mr-2"></i>Mark Practical Session as Complete
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
+            </div>
+            <form action="{{ route('instructor.schedule.mark.complete', $sch->id) }}" method="POST">
+                @csrf
+                <div class="modal-body">
+                    <p>
+                        Mark practical session on <strong>{{ $sch->date->format('M d, Y') }}</strong>
+                        ({{ \Carbon\Carbon::parse($sch->start_time)->format('h:i A') }}
+                        &ndash; {{ \Carbon\Carbon::parse($sch->end_time)->format('h:i A') }}) as completed
+                        for <strong>{{ $student->first_name }} {{ $student->last_name }}</strong>.
+                    </p>
+                    <div class="form-group">
+                        <label for="practical_notes_{{ $sch->id }}">Session Notes <small class="text-muted">(optional)</small></label>
+                        <textarea class="form-control" id="practical_notes_{{ $sch->id }}" name="notes" rows="2"
                             placeholder="Any notes about this session..."></textarea>
                     </div>
                 </div>
@@ -939,6 +1175,19 @@ $(document).ready(function () {
 // Select all schedules checkbox
 document.getElementById('selectAllSchedules')?.addEventListener('change', function () {
     document.querySelectorAll('.schedule-checkbox').forEach(cb => cb.checked = this.checked);
+});
+
+// Reschedule request modals — set approve/reject action and button style
+$('[data-target^="#handleRescheduleModal"]').on('click', function () {
+    var action  = $(this).data('action');
+    var modalId = $(this).data('target').replace('#handleRescheduleModal', '');
+    $('#rescheduleAction' + modalId).val(action);
+    var btn = $('#rescheduleSubmitBtn' + modalId);
+    if (action === 'reject') {
+        btn.removeClass('btn-success').addClass('btn-danger').html('<i class="fas fa-times mr-1"></i>Reject');
+    } else {
+        btn.removeClass('btn-danger').addClass('btn-success').html('<i class="fas fa-check mr-1"></i>Approve');
+    }
 });
 </script>
 @endsection

@@ -6,6 +6,7 @@ use App\Models\Course;
 use App\Models\CourseSchedule;
 use App\Models\InstructorEvaluation;
 use App\Models\PracticalSession;
+use App\Models\ScheduleRescheduleRequest;
 use App\Models\SessionAttendance;
 use App\Models\Student;
 use App\Models\ClassFeedback;
@@ -391,10 +392,21 @@ class DashboardController extends Controller
             abort(403, 'Unauthorized action.');
         }
 
-        // All students for this instructor + course
-        $students = Student::where('course_id', $schedule->course_id)
-            ->where('instructor_id', $instructor->id)
-            ->get();
+        // If this schedule is explicitly assigned to specific students (via pivot), mark only those.
+        // Otherwise (course-level group session) mark all of this instructor's students in the course.
+        $pivotStudentIds = DB::table('course_schedule_student')
+            ->where('course_schedule_id', $schedule->id)
+            ->pluck('student_id');
+
+        if ($pivotStudentIds->isNotEmpty()) {
+            $students = Student::whereIn('id', $pivotStudentIds)
+                ->where('instructor_id', $instructor->id)
+                ->get();
+        } else {
+            $students = Student::where('course_id', $schedule->course_id)
+                ->where('instructor_id', $instructor->id)
+                ->get();
+        }
 
         $autoCompletedTheory    = 0;
         $autoCompletedPractical = 0;
@@ -531,13 +543,14 @@ class DashboardController extends Controller
 
         // Map status to query parameters
         $statusMap = [
-            'theory-pending' => ['theory_status' => 'pending'],
-            'theory-completed' => ['theory_status' => 'completed'],
-            'practical-pending' => ['theory_status' => 'completed', 'practical_status' => 'pending'],
-            'practical-assigned' => ['practical_status' => 'assigned'],
+            'theory-pending'      => ['theory_status' => 'pending'],
+            'theory-in-progress'  => ['theory_status' => 'in_progress'],
+            'theory-completed'    => ['theory_status' => 'completed'],
+            'practical-pending'   => ['theory_status' => 'completed', 'practical_status' => 'pending'],
+            'practical-assigned'  => ['practical_status' => 'assigned'],
             'practical-completed' => ['practical_status' => 'completed'],
-            'not-appeared' => ['practical_status' => 'not_appeared'],
-            'failed' => ['practical_status' => 'failed'],
+            'not-appeared'        => ['practical_status' => 'not_appeared'],
+            'failed'              => ['practical_status' => 'failed'],
         ];
 
         if (!isset($statusMap[$status])) {
@@ -581,6 +594,16 @@ class DashboardController extends Controller
         // since schedules are created at course level by admin)
         $theorySchedules = CourseSchedule::where('course_id', $student->course_id)
             ->where('session_type', 'theory')
+            ->orderBy('date')
+            ->get();
+
+        // Practical schedules specifically assigned to this student (via pivot)
+        $practicalSchedules = CourseSchedule::whereIn('id', function ($q) use ($student) {
+                $q->select('course_schedule_id')
+                  ->from('course_schedule_student')
+                  ->where('student_id', $student->id);
+            })
+            ->where('session_type', 'practical')
             ->orderBy('date')
             ->get();
 
@@ -665,16 +688,25 @@ class DashboardController extends Controller
 
         $availableSchedules = $availableQuery->orderBy('date')->orderBy('start_time')->get();
 
+        // Pending reschedule requests from this student
+        $rescheduleRequests = ScheduleRescheduleRequest::where('student_id', $student->id)
+            ->with('schedule')
+            ->where('status', 'pending')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
         return view('instructor.student-view', [
-            'student'             => $student,
-            'instructor'          => $instructor,
-            'practicalSessions'   => $practicalSessions,
-            'theorySchedules'     => $theorySchedules,
-            'sessionAttendances'  => $sessionAttendances,
-            'evaluation'          => $evaluation,
-            'availableSchedules'  => $availableSchedules,
-            'assignedScheduleIds' => $assignedScheduleIds,
-            'classProgress'       => $classProgress,
+            'student'              => $student,
+            'instructor'           => $instructor,
+            'practicalSessions'    => $practicalSessions,
+            'theorySchedules'      => $theorySchedules,
+            'practicalSchedules'   => $practicalSchedules,
+            'sessionAttendances'   => $sessionAttendances,
+            'evaluation'           => $evaluation,
+            'availableSchedules'   => $availableSchedules,
+            'assignedScheduleIds'  => $assignedScheduleIds,
+            'classProgress'        => $classProgress,
+            'rescheduleRequests'   => $rescheduleRequests,
         ]);
     }
 
@@ -789,5 +821,116 @@ class DashboardController extends Controller
         return redirect()->back()->with('success',
             ucfirst($request->session_type) . ' session #' . $classOrder . ' logged for ' . $student->first_name . '.'
         );
+    }
+
+    /**
+     * Instructor schedules a future session for a specific student.
+     * Creates a CourseSchedule record and assigns the student — does NOT mark as complete.
+     * The session will appear in the student's Upcoming Classes tab.
+     */
+    public function createSessionForStudent(Request $request, Student $student)
+    {
+        $instructor = Auth::guard('instructor')->user();
+
+        if ($student->instructor_id != $instructor->id) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $request->validate([
+            'session_type' => 'required|in:theory,practical',
+            'session_date' => 'required|date|after_or_equal:today',
+            'start_time'   => 'required|date_format:H:i',
+            'end_time'     => 'required|date_format:H:i',
+        ]);
+
+        $schedule = CourseSchedule::create([
+            'course_id'     => $student->course_id,
+            'instructor_id' => $instructor->id,
+            'date'          => $request->session_date,
+            'start_time'    => $request->start_time . ':00',
+            'end_time'      => $request->end_time   . ':00',
+            'session_type'  => $request->session_type,
+            'max_students'  => 1,
+            'is_active'     => true,
+        ]);
+
+        $student->assignedSchedules()->syncWithoutDetaching([
+            $schedule->id => ['assigned_by' => $instructor->id],
+        ]);
+
+        return redirect()->back()->with('success',
+            ucfirst($request->session_type) . ' session scheduled for ' . $student->first_name .
+            ' on ' . Carbon::parse($request->session_date)->format('M d, Y') . '.'
+        );
+    }
+
+    /**
+     * Instructor handles (approves or rejects) a reschedule request from a student.
+     */
+    public function handleRescheduleRequest(Request $request, ScheduleRescheduleRequest $rescheduleRequest)
+    {
+        $instructor = Auth::guard('instructor')->user();
+
+        if ($rescheduleRequest->student->instructor_id != $instructor->id) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $request->validate([
+            'action'          => 'required|in:approve,reject',
+            'instructor_note' => 'nullable|string|max:500',
+        ]);
+
+        if ($request->action === 'approve') {
+            $schedule = $rescheduleRequest->schedule;
+
+            // If multiple students share this schedule, create a separate one for this student
+            $sharedCount = DB::table('course_schedule_student')
+                ->where('course_schedule_id', $schedule->id)
+                ->count();
+
+            if ($sharedCount > 1) {
+                $newSchedule = CourseSchedule::create([
+                    'course_id'     => $schedule->course_id,
+                    'instructor_id' => $instructor->id,
+                    'date'          => $rescheduleRequest->requested_date,
+                    'start_time'    => $rescheduleRequest->requested_start_time,
+                    'end_time'      => $rescheduleRequest->requested_end_time ?? $schedule->end_time,
+                    'session_type'  => $schedule->session_type,
+                    'max_students'  => 1,
+                    'is_active'     => true,
+                ]);
+
+                $student = $rescheduleRequest->student;
+                $student->assignedSchedules()->detach($schedule->id);
+                $student->assignedSchedules()->syncWithoutDetaching([
+                    $newSchedule->id => ['assigned_by' => $instructor->id],
+                ]);
+            } else {
+                $schedule->update([
+                    'date'       => $rescheduleRequest->requested_date,
+                    'start_time' => $rescheduleRequest->requested_start_time,
+                    'end_time'   => $rescheduleRequest->requested_end_time ?? $schedule->end_time,
+                ]);
+            }
+
+            $rescheduleRequest->update([
+                'status'          => 'approved',
+                'instructor_note' => $request->instructor_note,
+                'handled_at'      => now(),
+            ]);
+
+            return redirect()->back()->with('success',
+                'Reschedule request approved. Session updated to ' .
+                Carbon::parse($rescheduleRequest->requested_date)->format('M d, Y') . '.'
+            );
+        }
+
+        $rescheduleRequest->update([
+            'status'          => 'rejected',
+            'instructor_note' => $request->instructor_note,
+            'handled_at'      => now(),
+        ]);
+
+        return redirect()->back()->with('success', 'Reschedule request has been rejected.');
     }
 }

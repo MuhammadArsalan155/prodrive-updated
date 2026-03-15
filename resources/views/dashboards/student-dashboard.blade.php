@@ -356,9 +356,10 @@
                     </div>
                     <div class="card-body">
                         @forelse($upcomingSchedules as $schedule)
+                        @php $rr = $schedule['reschedule_request']; @endphp
                             <div class="alert alert-light border-left-primary shadow-sm mb-2">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div class="flex-grow-1">
                                         <strong>{{ $schedule['session_type'] }} Session</strong>
                                         <p class="mb-0 text-gray-800">
                                             <i class="fas fa-clock mr-1"></i>
@@ -369,10 +370,95 @@
                                             <i class="fas fa-user-tie mr-1"></i>
                                             Instructor: {{ $schedule['instructor_name'] }}
                                         </small>
+
+                                        {{-- Reschedule request status --}}
+                                        @if($rr)
+                                            <div class="mt-2">
+                                                @if($rr['status'] === 'pending')
+                                                    <span class="badge badge-warning">
+                                                        <i class="fas fa-clock mr-1"></i>Reschedule Requested
+                                                    </span>
+                                                    <small class="text-muted ml-1">
+                                                        → {{ $rr['requested_date'] }} at {{ $rr['requested_start_time'] }}
+                                                    </small>
+                                                @elseif($rr['status'] === 'approved')
+                                                    <span class="badge badge-success">
+                                                        <i class="fas fa-check mr-1"></i>Reschedule Approved
+                                                    </span>
+                                                @elseif($rr['status'] === 'rejected')
+                                                    <span class="badge badge-danger">
+                                                        <i class="fas fa-times mr-1"></i>Reschedule Rejected
+                                                    </span>
+                                                    @if($rr['instructor_note'])
+                                                        <small class="text-muted ml-1">{{ $rr['instructor_note'] }}</small>
+                                                    @endif
+                                                @endif
+                                            </div>
+                                        @endif
                                     </div>
-                                    <span class="badge badge-primary">Enrolled</span>
+                                    <div class="ml-3 d-flex flex-column align-items-end" style="gap:.4rem;">
+                                        <span class="badge badge-primary">Enrolled</span>
+                                        @if(!$rr || $rr['status'] === 'rejected')
+                                            <button class="btn btn-sm btn-outline-warning"
+                                                data-toggle="modal"
+                                                data-target="#rescheduleModal{{ $schedule['id'] }}">
+                                                <i class="fas fa-exchange-alt mr-1"></i>Request Reschedule
+                                            </button>
+                                        @endif
+                                    </div>
                                 </div>
                             </div>
+
+                            {{-- Reschedule Request Modal --}}
+                            @if(!$rr || $rr['status'] === 'rejected')
+                            <div class="modal fade" id="rescheduleModal{{ $schedule['id'] }}" tabindex="-1" role="dialog">
+                                <div class="modal-dialog" role="document">
+                                    <div class="modal-content">
+                                        <form action="{{ route('student.reschedule.request', $schedule['id']) }}" method="POST">
+                                            @csrf
+                                            <div class="modal-header">
+                                                <h5 class="modal-title">
+                                                    <i class="fas fa-exchange-alt mr-2"></i>Request Reschedule
+                                                </h5>
+                                                <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <p class="text-muted small mb-3">
+                                                    Current: <strong>{{ $schedule['day_name'] }}, {{ $schedule['date'] }}</strong>
+                                                    at <strong>{{ $schedule['start_time'] }}</strong>
+                                                </p>
+                                                <div class="form-group">
+                                                    <label class="small font-weight-bold">Preferred Date <span class="text-danger">*</span></label>
+                                                    <input type="date" name="requested_date" class="form-control form-control-sm"
+                                                        min="{{ now()->toDateString() }}" required>
+                                                </div>
+                                                <div class="form-row">
+                                                    <div class="form-group col-6">
+                                                        <label class="small font-weight-bold">Preferred Start Time <span class="text-danger">*</span></label>
+                                                        <input type="time" name="requested_start_time" class="form-control form-control-sm" required>
+                                                    </div>
+                                                    <div class="form-group col-6">
+                                                        <label class="small font-weight-bold">Preferred End Time</label>
+                                                        <input type="time" name="requested_end_time" class="form-control form-control-sm">
+                                                    </div>
+                                                </div>
+                                                <div class="form-group mb-0">
+                                                    <label class="small font-weight-bold">Reason (optional)</label>
+                                                    <textarea name="reason" class="form-control form-control-sm" rows="2"
+                                                        placeholder="Why do you need to reschedule?"></textarea>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Cancel</button>
+                                                <button type="submit" class="btn btn-warning btn-sm">
+                                                    <i class="fas fa-paper-plane mr-1"></i>Send Request
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            @endif
                         @empty
                             <div class="text-center text-muted py-3">
                                 <i class="fas fa-calendar-times mr-2"></i>

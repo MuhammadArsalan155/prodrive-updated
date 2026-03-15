@@ -6,6 +6,7 @@ use App\Models\Course;
 use App\Models\CourseSchedule;
 use App\Models\Installment;
 use App\Models\ProgressReport;
+use App\Models\ScheduleRescheduleRequest;
 use App\Models\SessionAttendance;
 use App\Models\Student;
 use App\Models\Announcement;
@@ -99,25 +100,45 @@ class StudentDashboardController extends Controller
         $attendedIds = SessionAttendance::where('student_id', $student->id)
             ->pluck('course_schedule_id');
 
-        return $student->assignedSchedules()
+        $schedules = $student->assignedSchedules()
             ->with('instructor')
             ->where('date', '>=', now()->toDateString())
             ->where('is_active', true)
             ->whereNotIn('course_schedules.id', $attendedIds)
             ->orderBy('date')
             ->orderBy('start_time')
+            ->get();
+
+        // Attach any reschedule requests for these schedules
+        $rescheduleRequests = ScheduleRescheduleRequest::where('student_id', $student->id)
+            ->whereIn('course_schedule_id', $schedules->pluck('id'))
+            ->orderBy('created_at', 'desc')
             ->get()
-            ->map(function ($schedule) {
-                return [
-                    'id'             => $schedule->id,
-                    'date'           => Carbon::parse($schedule->date)->format('M d, Y'),
-                    'start_time'     => Carbon::parse($schedule->start_time)->format('h:i A'),
-                    'end_time'       => Carbon::parse($schedule->end_time)->format('h:i A'),
-                    'session_type'   => ucfirst($schedule->session_type),
-                    'instructor_name'=> $schedule->instructor->instructor_name ?? 'N/A',
-                    'day_name'       => Carbon::parse($schedule->date)->format('l'),
-                ];
-            });
+            ->keyBy('course_schedule_id');
+
+        return $schedules->map(function ($schedule) use ($rescheduleRequests) {
+            $rr = $rescheduleRequests->get($schedule->id);
+            return [
+                'id'              => $schedule->id,
+                'date'            => Carbon::parse($schedule->date)->format('M d, Y'),
+                'start_time'      => Carbon::parse($schedule->start_time)->format('h:i A'),
+                'end_time'        => Carbon::parse($schedule->end_time)->format('h:i A'),
+                'session_type'    => ucfirst($schedule->session_type),
+                'instructor_name' => $schedule->instructor->instructor_name ?? 'N/A',
+                'day_name'        => Carbon::parse($schedule->date)->format('l'),
+                'reschedule_request' => $rr ? [
+                    'id'                   => $rr->id,
+                    'status'               => $rr->status,
+                    'requested_date'       => Carbon::parse($rr->requested_date)->format('M d, Y'),
+                    'requested_start_time' => Carbon::parse($rr->requested_start_time)->format('h:i A'),
+                    'requested_end_time'   => $rr->requested_end_time
+                                                ? Carbon::parse($rr->requested_end_time)->format('h:i A')
+                                                : null,
+                    'reason'               => $rr->reason,
+                    'instructor_note'      => $rr->instructor_note,
+                ] : null,
+            ];
+        });
     }
 
     protected function getPastSchedules(Student $student)
@@ -568,5 +589,53 @@ class StudentDashboardController extends Controller
         } elseif ($paidInstallments > 0) {
             $invoice->update(['status' => 'partial']);
         }
+    }
+
+    /**
+     * Student submits a request to reschedule an upcoming session.
+     */
+    public function requestReschedule(Request $request, CourseSchedule $schedule)
+    {
+        $student = Auth::guard('student')->user();
+
+        // Verify this schedule is actually assigned to the student
+        $assigned = $student->assignedSchedules()
+            ->where('course_schedules.id', $schedule->id)
+            ->exists();
+
+        if (!$assigned) {
+            return redirect()->back()->with('error', 'You are not enrolled in this session.');
+        }
+
+        $request->validate([
+            'requested_date'       => 'required|date|after_or_equal:today',
+            'requested_start_time' => 'required|date_format:H:i',
+            'requested_end_time'   => 'nullable|date_format:H:i',
+            'reason'               => 'nullable|string|max:500',
+        ]);
+
+        // Prevent duplicate pending requests for the same session
+        $existing = ScheduleRescheduleRequest::where('student_id', $student->id)
+            ->where('course_schedule_id', $schedule->id)
+            ->where('status', 'pending')
+            ->exists();
+
+        if ($existing) {
+            return redirect()->back()->with('error', 'You already have a pending reschedule request for this session.');
+        }
+
+        ScheduleRescheduleRequest::create([
+            'student_id'           => $student->id,
+            'course_schedule_id'   => $schedule->id,
+            'requested_date'       => $request->requested_date,
+            'requested_start_time' => $request->requested_start_time . ':00',
+            'requested_end_time'   => $request->requested_end_time
+                                        ? $request->requested_end_time . ':00'
+                                        : null,
+            'reason'               => $request->reason,
+            'status'               => 'pending',
+        ]);
+
+        return redirect()->back()->with('success', 'Your reschedule request has been sent to your instructor.');
     }
 }

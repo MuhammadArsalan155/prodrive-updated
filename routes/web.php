@@ -209,6 +209,8 @@ Route::middleware(['web'])
         Route::post('/instructor/students/{student}/evaluation', [DashboardController::class, 'submitEvaluation'])->name('instructor.student.evaluation');
         Route::post('/instructor/students/{student}/assign-schedules', [DashboardController::class, 'assignSchedulesToStudent'])->name('instructor.student.assign.schedules');
         Route::post('/instructor/students/{student}/log-session', [DashboardController::class, 'logSession'])->name('instructor.student.log.session');
+        Route::post('/instructor/students/{student}/create-session', [DashboardController::class, 'createSessionForStudent'])->name('instructor.student.create.session');
+        Route::post('/instructor/reschedule-requests/{rescheduleRequest}/handle', [DashboardController::class, 'handleRescheduleRequest'])->name('instructor.reschedule.handle');
 
         Route::get('/instructor/student/{student}', [DashboardController::class, 'viewStudent'])->name('instructor.student.view');
 
@@ -228,6 +230,9 @@ Route::middleware(['web'])
         // Student feedback — keyed by attendance ID (class_order + class_type encoded in attendance)
         Route::get('/student/feedback/{attendanceId}', [StudentDashboardController::class, 'getAvailableFeedback'])->name('student.feedback.load');
         Route::post('/student/feedback/{attendanceId}', [StudentDashboardController::class, 'submitFeedback'])->name('student.feedback.submit');
+
+        // Student reschedule request for an upcoming session
+        Route::post('/student/schedules/{schedule}/reschedule-request', [StudentDashboardController::class, 'requestReschedule'])->name('student.reschedule.request');
 
         Route::get('/student/progress-reports', [ProgressReportController::class, 'index'])->name('student.progress-reports.index');
 

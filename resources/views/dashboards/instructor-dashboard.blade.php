@@ -169,6 +169,13 @@
                                 <a href="{{ route('instructor.students.status', 'theory-pending') }}"
                                     class="btn btn-sm btn-outline-info">View All</a>
                             </h5>
+                            @if($studentCounts['theory']['in_progress'] > 0)
+                            <h5 class="mt-2">Theory In Progress
+                                <span class="badge badge-warning">{{ $studentCounts['theory']['in_progress'] }}</span>
+                                <a href="{{ route('instructor.students.status', 'theory-in-progress') }}"
+                                    class="btn btn-sm btn-outline-warning">View All</a>
+                            </h5>
+                            @endif
 
                             <!-- Theory Classes Calendar Preview -->
                             <div class="mt-3">
