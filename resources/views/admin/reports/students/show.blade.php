@@ -388,7 +388,6 @@
         <a href="#sec-theory"><i class="fas fa-book"></i> Theory Flow</a>
         <a href="#sec-practical"><i class="fas fa-car"></i> Practical Flow</a>
         <a href="#sec-feedback"><i class="fas fa-comments"></i> Feedback</a>
-        <a href="#sec-hours"><i class="fas fa-clock"></i> Working Hours</a>
         <a href="#sec-payment"><i class="fas fa-credit-card"></i> Payment</a>
         <a href="#sec-completion"><i class="fas fa-flag-checkered"></i> Completion</a>
         <a href="#sec-evaluation"><i class="fas fa-star"></i> Evaluation</a>
@@ -703,8 +702,7 @@
                     <div class="prog-bar-fill prog-bar-theory" style="width:{{ $courseProgress['theory']['percentage'] }}%;"></div>
                 </div>
                 <div class="prog-meta">
-                    {{ $courseProgress['theory']['completed'] }}h completed of {{ $courseProgress['theory']['total'] }}h required
-                    &nbsp;&bull;&nbsp; {{ $courseProgress['theory']['classes_completed'] }} of {{ $courseProgress['theory']['classes_total'] }} classes done
+                    {{ $courseProgress['theory']['classes_completed'] }} of {{ $courseProgress['theory']['classes_total'] > 0 ? $courseProgress['theory']['classes_total'] : '?' }} classes completed
                     &nbsp;&bull;&nbsp;
                     Status:
                     @if($student->theory_status == 'completed') <span style="color:var(--success);font-weight:600;">Completed{{ $student->theory_completion_date ? ' on '.\Carbon\Carbon::parse($student->theory_completion_date)->format('M d, Y') : '' }}</span>
@@ -714,65 +712,55 @@
                 </div>
             </div>
 
-            {{-- Theory Schedule Table --}}
+            {{-- Theory Attendance Table — actual completed classes from session_attendance --}}
+            @php
+                $theoryAttendances = $sessionAttendances->where('class_type', 'theory')->sortBy('class_order');
+                $attendedBySchedId = $sessionAttendances->keyBy('course_schedule_id');
+            @endphp
             <h6 style="font-weight:700;color:var(--gray-700);margin-bottom:1rem;">
-                <i class="fas fa-calendar-alt me-2 text-primary"></i>Theory Class Schedule
-                <span class="ms-2 status-pill pill-primary" style="font-size:0.7rem;">{{ $theorySchedules->count() }} sessions</span>
+                <i class="fas fa-calendar-check me-2 text-primary"></i>Theory Classes Attended
+                <span class="ms-2 status-pill pill-primary" style="font-size:0.7rem;">{{ $theoryAttendances->count() }} completed</span>
             </h6>
-            @if($theorySchedules->isNotEmpty())
+            @if($theoryAttendances->isNotEmpty())
                 <div class="table-responsive">
                     <table class="sched-table">
                         <thead>
                             <tr>
-                                <th>#</th>
+                                <th>Class #</th>
                                 <th>Date</th>
                                 <th>Day</th>
                                 <th>Start Time</th>
                                 <th>End Time</th>
                                 <th>Duration</th>
-                                <th>Status</th>
+                                <th>Completed At</th>
+                                <th>Notes</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach($theorySchedules as $idx => $sched)
+                            @foreach($theoryAttendances as $att)
                                 @php
-                                    $schedDate = \Carbon\Carbon::parse($sched->date);
-                                    $isPast = $schedDate->isPast();
-                                    $isToday = $schedDate->isToday();
-                                    $startT = \Carbon\Carbon::parse($sched->start_time);
-                                    $endT = \Carbon\Carbon::parse($sched->end_time);
-                                    $dur = $endT->diffInMinutes($startT);
-                                    $durH = round($dur / 60, 1);
+                                    $sch   = $att->schedule;
+                                    $startT = $sch ? \Carbon\Carbon::parse($sch->start_time) : null;
+                                    $endT   = $sch ? \Carbon\Carbon::parse($sch->end_time)   : null;
+                                    $durH   = ($startT && $endT) ? round($endT->diffInMinutes($startT) / 60, 1) : '—';
+                                    $schedDate = $sch ? \Carbon\Carbon::parse($sch->date) : null;
                                 @endphp
                                 <tr>
-                                    <td><strong>{{ $idx + 1 }}</strong></td>
-                                    <td>{{ $schedDate->format('M d, Y') }}</td>
-                                    <td>{{ $schedDate->format('l') }}</td>
-                                    <td>{{ $startT->format('h:i A') }}</td>
-                                    <td>{{ $endT->format('h:i A') }}</td>
-                                    <td>{{ $durH }}h</td>
-                                    <td>
-                                        @if($student->theory_status == 'completed')
-                                            <span class="status-pill pill-success" style="font-size:0.72rem;">Completed</span>
-                                        @elseif($isPast)
-                                            @if($idx < $courseProgress['theory']['classes_completed'])
-                                                <span class="status-pill pill-success" style="font-size:0.72rem;">Done</span>
-                                            @else
-                                                <span class="status-pill pill-warning" style="font-size:0.72rem;">Attended?</span>
-                                            @endif
-                                        @elseif($isToday)
-                                            <span class="status-pill pill-info" style="font-size:0.72rem;">Today</span>
-                                        @else
-                                            <span class="status-pill pill-secondary" style="font-size:0.72rem;">Upcoming</span>
-                                        @endif
-                                    </td>
+                                    <td><strong>{{ $att->class_order }}</strong></td>
+                                    <td>{{ $schedDate ? $schedDate->format('M d, Y') : '—' }}</td>
+                                    <td>{{ $schedDate ? $schedDate->format('l') : '—' }}</td>
+                                    <td>{{ $startT ? $startT->format('h:i A') : '—' }}</td>
+                                    <td>{{ $endT   ? $endT->format('h:i A')   : '—' }}</td>
+                                    <td>{{ $durH }}{{ is_numeric($durH) ? 'h' : '' }}</td>
+                                    <td><small>{{ $att->completed_at ? $att->completed_at->format('M d, Y h:i A') : '—' }}</small></td>
+                                    <td><small>{{ $att->notes ?? '—' }}</small></td>
                                 </tr>
                             @endforeach
                         </tbody>
                     </table>
                 </div>
             @else
-                <div class="empty-state"><i class="fas fa-calendar-alt"></i><small>No theory schedules found for this course</small></div>
+                <div class="empty-state"><i class="fas fa-calendar-alt"></i><small>No theory classes completed yet</small></div>
             @endif
 
             @if($student->theory_status == 'completed' && $student->theory_completion_date)
@@ -806,7 +794,7 @@
                     <div class="prog-bar-fill prog-bar-practical" style="width:{{ $courseProgress['practical']['percentage'] }}%;"></div>
                 </div>
                 <div class="prog-meta">
-                    {{ $courseProgress['practical']['completed'] }}h completed of {{ $courseProgress['practical']['total'] }}h required
+                    {{ $courseProgress['practical']['classes_completed'] }} of {{ $courseProgress['practical']['classes_total'] > 0 ? $courseProgress['practical']['classes_total'] : '?' }} classes completed
                     &nbsp;&bull;&nbsp;
                     Status:
                     @php
@@ -826,81 +814,64 @@
                 </div>
             </div>
 
-            {{-- Practical Sessions Table --}}
-            @if(isset($practicalSessions) && $practicalSessions->count() > 0)
-                @php
-                    $sessStatusColors = [
-                        'scheduled'    => ['#2563eb','#eff6ff'],
-                        'completed'    => ['#10b981','#d1fae5'],
-                        'failed'       => ['#ef4444','#fee2e2'],
-                        'not_appeared' => ['#f59e0b','#fef3c7'],
-                        'cancelled'    => ['#6b7280','#f3f4f6'],
-                    ];
-                    $totalPlanned   = $practicalSessions->count();
-                    $totalCompleted = $practicalSessions->where('status','completed')->count();
-                    $totalHoursCompleted = $practicalSessions->where('status','completed')->sum('duration_hours');
-                @endphp
+            {{-- Practical Sessions from session_attendance --}}
+            @php
+                $practicalAttendances = $sessionAttendances->where('class_type', 'practical')->sortBy('class_order');
+            @endphp
 
-                {{-- Summary chips --}}
+            @if($practicalAttendances->isNotEmpty())
                 <div class="d-flex flex-wrap mb-3" style="gap:.5rem;">
                     <span style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:20px;padding:4px 14px;font-size:.8rem;color:#065f46;">
-                        <i class="fas fa-list-ol me-1"></i> {{ $totalPlanned }} session(s) planned
-                    </span>
-                    <span style="background:#ecfdf5;border:1px solid #6ee7b7;border-radius:20px;padding:4px 14px;font-size:.8rem;color:#065f46;">
-                        <i class="fas fa-check-circle me-1"></i> {{ $totalCompleted }} completed
-                    </span>
-                    <span style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:20px;padding:4px 14px;font-size:.8rem;color:#065f46;">
-                        <i class="fas fa-clock me-1"></i> {{ $totalHoursCompleted }}h done
+                        <i class="fas fa-check-circle me-1"></i> {{ $practicalAttendances->count() }} session(s) completed
                     </span>
                 </div>
 
                 <div class="table-responsive">
-                    <table class="table table-bordered" style="font-size:.875rem;">
-                        <thead style="background:var(--pd-navy,#1a2e4a);color:#fff;">
+                    <table class="sched-table">
+                        <thead>
                             <tr>
-                                <th style="width:40px;">#</th>
+                                <th>Class #</th>
                                 <th>Date</th>
+                                <th>Day</th>
                                 <th>Start Time</th>
                                 <th>End Time</th>
                                 <th>Duration</th>
-                                <th>Status</th>
-                                <th>Instructor Notes</th>
                                 <th>Completed At</th>
+                                <th>Notes</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach($practicalSessions as $sess)
+                            @foreach($practicalAttendances as $att)
                                 @php
-                                    [$fc,$bg] = $sessStatusColors[$sess->status] ?? ['#6b7280','#f3f4f6'];
+                                    $sch    = $att->schedule;
+                                    $startT = $sch ? \Carbon\Carbon::parse($sch->start_time) : null;
+                                    $endT   = $sch ? \Carbon\Carbon::parse($sch->end_time)   : null;
+                                    $durH   = ($startT && $endT) ? round($endT->diffInMinutes($startT) / 60, 1) : '—';
+                                    $schedDate = $sch ? \Carbon\Carbon::parse($sch->date) : null;
                                 @endphp
-                                <tr style="background:{{ $bg }};">
-                                    <td class="text-center font-weight-bold">{{ $sess->session_number }}</td>
-                                    <td>{{ $sess->date ? $sess->date->format('M d, Y') : '—' }}</td>
-                                    <td>{{ $sess->start_time ? \Carbon\Carbon::parse($sess->start_time)->format('h:i A') : '—' }}</td>
-                                    <td>{{ $sess->end_time ? \Carbon\Carbon::parse($sess->end_time)->format('h:i A') : '—' }}</td>
-                                    <td>{{ $sess->duration_hours }} hr</td>
-                                    <td>
-                                        <span style="background:{{ $fc }};color:#fff;padding:2px 10px;border-radius:12px;font-size:.78rem;font-weight:600;">
-                                            {{ ucfirst(str_replace('_', ' ', $sess->status)) }}
-                                        </span>
-                                    </td>
-                                    <td style="max-width:200px;white-space:normal;">{{ $sess->instructor_notes ?? '—' }}</td>
-                                    <td>{{ $sess->completed_at ? $sess->completed_at->format('M d, Y h:i A') : '—' }}</td>
+                                <tr>
+                                    <td><strong>{{ $att->class_order }}</strong></td>
+                                    <td>{{ $schedDate ? $schedDate->format('M d, Y') : '—' }}</td>
+                                    <td>{{ $schedDate ? $schedDate->format('l') : '—' }}</td>
+                                    <td>{{ $startT ? $startT->format('h:i A') : '—' }}</td>
+                                    <td>{{ $endT   ? $endT->format('h:i A')   : '—' }}</td>
+                                    <td>{{ $durH }}{{ is_numeric($durH) ? 'h' : '' }}</td>
+                                    <td><small>{{ $att->completed_at ? $att->completed_at->format('M d, Y h:i A') : '—' }}</small></td>
+                                    <td><small>{{ $att->notes ?? '—' }}</small></td>
                                 </tr>
                             @endforeach
                         </tbody>
                     </table>
                 </div>
-
             @else
                 <div class="empty-state" style="background:var(--gray-50,#f9fafb);border-radius:12px;border:1px dashed var(--gray-200,#e5e7eb);">
                     <i class="fas fa-car"></i>
-                    <p style="margin-bottom:4px;font-weight:600;">No Practical Sessions Assigned</p>
+                    <p style="margin-bottom:4px;font-weight:600;">No Practical Sessions Completed</p>
                     <small>
                         @if($student->theory_status !== 'completed')
                             Student must complete theory classes before practical sessions can be scheduled.
                         @else
-                            Theory completed. Instructor can now assign practical sessions.
+                            Theory completed. Instructor can now assign and schedule practical sessions.
                         @endif
                     </small>
                 </div>
@@ -1019,97 +990,6 @@
     {{-- ============================================================
          SECTION 7 — WORKING HOUR TRACKING
     ============================================================ --}}
-    <div class="section-card" id="sec-hours">
-        <div class="card-header-custom">
-            <div class="section-icon" style="background:#f59e0b;"><i class="fas fa-clock"></i></div>
-            <div>
-                <div class="section-title">Working Hour Tracking</div>
-                <div class="section-subtitle">Session-by-session hour log for theory and practical classes</div>
-            </div>
-        </div>
-        <div class="card-body-custom">
-            {{-- Total hours summary --}}
-            <div class="row g-3 mb-4">
-                <div class="col-6 col-md-3">
-                    <div class="stat-box blue">
-                        <div class="stat-value">{{ $courseProgress['theory']['completed'] }}h</div>
-                        <div class="stat-label">Theory Hours Logged</div>
-                    </div>
-                </div>
-                <div class="col-6 col-md-3">
-                    <div class="stat-box green">
-                        <div class="stat-value">{{ $courseProgress['practical']['completed'] }}h</div>
-                        <div class="stat-label">Practical Hours Logged</div>
-                    </div>
-                </div>
-                <div class="col-6 col-md-3">
-                    <div class="stat-box yellow">
-                        <div class="stat-value">{{ $courseProgress['theory']['completed'] + $courseProgress['practical']['completed'] }}h</div>
-                        <div class="stat-label">Total Hours Done</div>
-                    </div>
-                </div>
-                <div class="col-6 col-md-3">
-                    <div class="stat-box orange">
-                        @php
-                            $hoursRemaining = max(0,
-                                ($courseProgress['theory']['total'] - $courseProgress['theory']['completed']) +
-                                ($courseProgress['practical']['total'] - $courseProgress['practical']['completed'])
-                            );
-                        @endphp
-                        <div class="stat-value">{{ $hoursRemaining }}h</div>
-                        <div class="stat-label">Hours Remaining</div>
-                    </div>
-                </div>
-            </div>
-
-            {{-- Session Log --}}
-            @if($courseHoursLog->isNotEmpty())
-                <div class="row g-4">
-                    <div class="col-md-6">
-                        <h6 style="font-weight:700;color:var(--gray-700);margin-bottom:1rem;">
-                            <i class="fas fa-book me-2 text-primary"></i>Theory Sessions Log
-                            @if($theoryHoursLog->isNotEmpty())
-                                <span class="ms-1 status-pill pill-primary" style="font-size:0.7rem;">{{ $theoryHoursLog->sum('hours') }}h total</span>
-                            @endif
-                        </h6>
-                        @forelse($theoryHoursLog as $entry)
-                            <div class="hours-row">
-                                <div class="hours-date"><i class="far fa-calendar-alt me-1"></i>{{ \Carbon\Carbon::parse($entry->date)->format('M d, Y') }}</div>
-                                <span class="hours-type-chip chip-theory">Theory</span>
-                                <div style="flex:1;text-align:right;font-weight:600;color:var(--primary);">{{ $entry->hours }}h</div>
-                            </div>
-                        @empty
-                            <div class="empty-state" style="padding:1rem;background:var(--gray-50);border-radius:8px;"><i class="fas fa-book"></i><small>No theory hours logged</small></div>
-                        @endforelse
-                    </div>
-                    <div class="col-md-6">
-                        <h6 style="font-weight:700;color:var(--gray-700);margin-bottom:1rem;">
-                            <i class="fas fa-car me-2 text-success"></i>Practical Sessions Log
-                            @if($practicalHoursLog->isNotEmpty())
-                                <span class="ms-1 status-pill pill-success" style="font-size:0.7rem;">{{ $practicalHoursLog->sum('hours') }}h total</span>
-                            @endif
-                        </h6>
-                        @forelse($practicalHoursLog as $entry)
-                            <div class="hours-row">
-                                <div class="hours-date"><i class="far fa-calendar-alt me-1"></i>{{ \Carbon\Carbon::parse($entry->date)->format('M d, Y') }}</div>
-                                <span class="hours-type-chip chip-practical">Practical</span>
-                                <div style="flex:1;text-align:right;font-weight:600;color:var(--success);">{{ $entry->hours }}h</div>
-                            </div>
-                        @empty
-                            <div class="empty-state" style="padding:1rem;background:var(--gray-50);border-radius:8px;"><i class="fas fa-car"></i><small>No practical hours logged</small></div>
-                        @endforelse
-                    </div>
-                </div>
-            @else
-                <div class="empty-state" style="background:var(--gray-50);border-radius:12px;border:1px dashed var(--gray-200);">
-                    <i class="fas fa-clock"></i>
-                    <p style="margin-bottom:4px;">No hour log entries found.</p>
-                    <small>Hours are tracked manually. Current totals: Theory {{ $courseProgress['theory']['completed'] }}h, Practical {{ $courseProgress['practical']['completed'] }}h</small>
-                </div>
-            @endif
-        </div>
-    </div>
-
     {{-- ============================================================
          SECTION 8 — PAYMENT FLOW
     ============================================================ --}}
@@ -1291,7 +1171,7 @@
                         <div class="step-body">
                             <div class="step-title">Theory Classes</div>
                             <div class="step-desc">
-                                {{ $courseProgress['theory']['completed'] }}h / {{ $courseProgress['theory']['total'] }}h completed
+                                {{ $courseProgress['theory']['classes_completed'] }} / {{ $courseProgress['theory']['classes_total'] > 0 ? $courseProgress['theory']['classes_total'] : '?' }} classes completed
                                 ({{ $courseProgress['theory']['percentage'] }}%)
                                 @if($student->theory_status == 'completed')
                                     &bull; <span style="color:var(--success);font-weight:600;">Completed {{ $student->theory_completion_date ? 'on '.\Carbon\Carbon::parse($student->theory_completion_date)->format('M d, Y') : '' }}</span>

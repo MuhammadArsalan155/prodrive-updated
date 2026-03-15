@@ -77,14 +77,18 @@ class StudentReportController extends Controller
         $theoryHoursLog = $courseHoursLog->where('course_type', 1)->values();
         $practicalHoursLog = $courseHoursLog->where('course_type', 2)->values();
 
-        // Feedback responses for this student (grouped by class_order)
-        $feedbackResponses = FeedbackResponse::where('user_id', $id)
+        // Feedback responses for this student, keyed by "class_type|class_order" for per-session lookup
+        $feedbackRaw = FeedbackResponse::where('user_id', $id)
             ->where('user_type', 'student')
             ->when($student->course_id, fn($q) => $q->where('course_id', $student->course_id))
             ->with(['question'])
             ->orderBy('class_order')
-            ->get()
-            ->groupBy('class_order');
+            ->get();
+
+        $feedbackResponses = $feedbackRaw->groupBy('class_order'); // kept for legacy sections
+        $feedbackBySession = $feedbackRaw->groupBy(
+            fn($r) => ($r->class_type ?? 'theory') . '|' . $r->class_order
+        );
 
         // Current course certificate
         $certificate = null;
@@ -99,12 +103,11 @@ class StudentReportController extends Controller
             ->orderBy('session_number')
             ->get();
 
-        // Session attendance records (theory class completions with class_order)
+        // Session attendance records (completed theory + practical classes with exact schedule times)
         $sessionAttendances = SessionAttendance::where('student_id', $id)
             ->where('status', 'completed')
             ->with('schedule')
-            ->orderBy('class_type')
-            ->orderBy('class_order')
+            ->orderBy('completed_at')
             ->get();
 
         // Instructor evaluation for this student + course
@@ -139,8 +142,8 @@ class StudentReportController extends Controller
             }
         }
 
-        // Course progress calculations
-        $courseProgress = $this->calculateCourseProgress($student);
+        // Course progress calculations — driven by actual session_attendance counts
+        $courseProgress = $this->calculateCourseProgress($student, $sessionAttendances);
 
         return view('admin.reports.students.show', compact(
             'student',
@@ -152,6 +155,7 @@ class StudentReportController extends Controller
             'theoryHoursLog',
             'practicalHoursLog',
             'feedbackResponses',
+            'feedbackBySession',
             'certificate',
             'practicalDuration',
             'practicalSessions',
@@ -232,8 +236,7 @@ class StudentReportController extends Controller
         $sessionAttendances = SessionAttendance::where('student_id', $id)
             ->where('status', 'completed')
             ->with('schedule')
-            ->orderBy('class_type')
-            ->orderBy('class_order')
+            ->orderBy('completed_at')
             ->get();
 
         $instructorEvaluation = null;
@@ -265,7 +268,7 @@ class StudentReportController extends Controller
             }
         }
 
-        $courseProgress = $this->calculateCourseProgress($student);
+        $courseProgress = $this->calculateCourseProgress($student, $sessionAttendances);
 
         $data = compact(
             'student',
@@ -323,47 +326,39 @@ class StudentReportController extends Controller
     }
 
     /**
-     * Calculate course progress for a student
+     * Calculate course progress using actual session_attendance records (not hours estimates).
      */
-    private function calculateCourseProgress(Student $student): array
+    private function calculateCourseProgress(Student $student, $sessionAttendances = null): array
     {
-        $theoryTotal = $student->course ? ($student->course->theory_hours ?? 0) : 0;
-        $practicalTotal = $student->course ? ($student->course->practical_hours ?? 0) : 0;
-        $theoryCompleted = $student->hours_theory ?? 0;
-        $practicalCompleted = $student->hours_practical ?? 0;
-
-        $theoryClassesTotal = $student->course ? ($student->course->total_theory_classes ?? 0) : 0;
+        $theoryClassesTotal    = $student->course ? ($student->course->total_theory_classes    ?? 0) : 0;
         $practicalClassesTotal = $student->course ? ($student->course->total_practical_classes ?? 0) : 0;
 
-        // Estimate classes completed from hours
-        $theoryHoursPerClass = ($theoryClassesTotal > 0 && $theoryTotal > 0)
-            ? $theoryTotal / $theoryClassesTotal
-            : 2;
-        $practicalHoursPerClass = ($practicalClassesTotal > 0 && $practicalTotal > 0)
-            ? $practicalTotal / $practicalClassesTotal
-            : 2;
+        // Actual completed counts from session_attendance
+        if ($sessionAttendances !== null) {
+            $theoryDone    = $sessionAttendances->where('class_type', 'theory')->count();
+            $practicalDone = $sessionAttendances->where('class_type', 'practical')->count();
+        } else {
+            $theoryDone    = SessionAttendance::where('student_id', $student->id)->where('class_type', 'theory')->where('status', 'completed')->count();
+            $practicalDone = SessionAttendance::where('student_id', $student->id)->where('class_type', 'practical')->where('status', 'completed')->count();
+        }
 
-        $theoryClassesCompleted = ($theoryHoursPerClass > 0 && $theoryCompleted > 0)
-            ? min($theoryClassesTotal, floor($theoryCompleted / $theoryHoursPerClass))
-            : 0;
-        $practicalClassesCompleted = ($practicalHoursPerClass > 0 && $practicalCompleted > 0)
-            ? min($practicalClassesTotal, floor($practicalCompleted / $practicalHoursPerClass))
-            : 0;
+        $theoryPct    = $theoryClassesTotal    > 0 ? min(100, round(($theoryDone    / $theoryClassesTotal)    * 100)) : ($theoryDone    > 0 ? 100 : 0);
+        $practicalPct = $practicalClassesTotal > 0 ? min(100, round(($practicalDone / $practicalClassesTotal) * 100)) : ($practicalDone > 0 ? 100 : 0);
 
         return [
             'theory' => [
-                'completed'        => $theoryCompleted,
-                'total'            => $theoryTotal,
-                'percentage'       => $theoryTotal > 0 ? round(($theoryCompleted / $theoryTotal) * 100) : 0,
-                'classes_completed' => $theoryClassesCompleted,
-                'classes_total'    => $theoryClassesTotal,
+                'completed'         => $student->hours_theory    ?? 0,
+                'total'             => $student->course ? ($student->course->theory_hours    ?? 0) : 0,
+                'percentage'        => $theoryPct,
+                'classes_completed' => $theoryDone,
+                'classes_total'     => $theoryClassesTotal,
             ],
             'practical' => [
-                'completed'        => $practicalCompleted,
-                'total'            => $practicalTotal,
-                'percentage'       => $practicalTotal > 0 ? round(($practicalCompleted / $practicalTotal) * 100) : 0,
-                'classes_completed' => $practicalClassesCompleted,
-                'classes_total'    => $practicalClassesTotal,
+                'completed'         => $student->hours_practical ?? 0,
+                'total'             => $student->course ? ($student->course->practical_hours ?? 0) : 0,
+                'percentage'        => $practicalPct,
+                'classes_completed' => $practicalDone,
+                'classes_total'     => $practicalClassesTotal,
             ],
         ];
     }
