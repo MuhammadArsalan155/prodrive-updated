@@ -298,6 +298,55 @@
             @endif
             ===================== --}}
 
+            <!-- ===================== Upcoming Sessions (all types — mirrors student panel) ===================== -->
+            @if(isset($upcomingAssigned) && $upcomingAssigned->count() > 0)
+            <div class="card shadow mb-4 border-left-primary">
+                <div class="card-header py-3 d-flex align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-calendar-alt mr-2"></i>Upcoming Sessions</h6>
+                    <span class="badge badge-primary">{{ $upcomingAssigned->count() }}</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-bordered mb-0">
+                            <thead class="thead-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Type</th>
+                                    <th>Date</th>
+                                    <th>Day</th>
+                                    <th>Start</th>
+                                    <th>End</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($upcomingAssigned as $i => $sch)
+                                @php
+                                    $typeLabel = ucfirst($sch->session_type ?? 'session');
+                                    $typeBadge = $sch->session_type === 'practical' ? 'badge-warning' : 'badge-info';
+                                @endphp
+                                <tr>
+                                    <td>{{ $i + 1 }}</td>
+                                    <td><span class="badge {{ $typeBadge }}">{{ $typeLabel }}</span></td>
+                                    <td>{{ \Carbon\Carbon::parse($sch->date)->format('M d, Y') }}</td>
+                                    <td>{{ \Carbon\Carbon::parse($sch->date)->format('D') }}</td>
+                                    <td>{{ \Carbon\Carbon::parse($sch->start_time)->format('h:i A') }}</td>
+                                    <td>{{ \Carbon\Carbon::parse($sch->end_time)->format('h:i A') }}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-success" data-toggle="modal"
+                                            data-target="#markUpcomingModal{{ $sch->id }}">
+                                            <i class="fas fa-check mr-1"></i>Mark Done
+                                        </button>
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            @endif
+
             <!-- ===================== Theory Sessions (per-class mark complete) ===================== -->
             @if(isset($theorySchedules) && $theorySchedules->count() > 0)
             <div class="card shadow mb-4">
@@ -811,9 +860,159 @@
                 </div>
             </div>
 
+            <!-- ===================== Lesson Plan ===================== -->
+            @if(($theoryLessonPlans ?? collect())->isNotEmpty() || ($practicalLessonPlans ?? collect())->isNotEmpty())
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex align-items-center justify-content-between"
+                     style="background:var(--pd-navy);color:#fff;border-radius:.35rem .35rem 0 0;">
+                    <h6 class="m-0 font-weight-bold"><i class="fas fa-list-ol mr-2"></i>Course Lesson Plan</h6>
+                    <div>
+                        @if(($theoryLessonPlans ?? collect())->isNotEmpty())
+                            <span class="badge badge-light mr-1" style="color:var(--pd-navy);">
+                                <i class="fas fa-book mr-1"></i>Theory: {{ $theoryLessonPlans->count() }}
+                            </span>
+                        @endif
+                        @if(($practicalLessonPlans ?? collect())->isNotEmpty())
+                            <span class="badge badge-warning">
+                                <i class="fas fa-car mr-1"></i>Practical: {{ $practicalLessonPlans->count() }}
+                            </span>
+                        @endif
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <ul class="nav nav-tabs px-3 pt-2" id="lpTabsInstr">
+                        @if(($theoryLessonPlans ?? collect())->isNotEmpty())
+                        <li class="nav-item">
+                            <a class="nav-link active font-weight-bold" data-toggle="tab" href="#lp-theory-instr">
+                                <i class="fas fa-book mr-1 text-info"></i>Theory
+                                <span class="badge badge-info ml-1">{{ $theoryLessonPlans->count() }}</span>
+                            </a>
+                        </li>
+                        @endif
+                        @if(($practicalLessonPlans ?? collect())->isNotEmpty())
+                        <li class="nav-item">
+                            <a class="nav-link font-weight-bold {{ ($theoryLessonPlans ?? collect())->isEmpty() ? 'active' : '' }}"
+                               data-toggle="tab" href="#lp-practical-instr">
+                                <i class="fas fa-car mr-1 text-warning"></i>Practical
+                                <span class="badge badge-warning ml-1">{{ $practicalLessonPlans->count() }}</span>
+                            </a>
+                        </li>
+                        @endif
+                    </ul>
+                    <div class="tab-content px-3 py-3">
+
+                        {{-- Theory tab --}}
+                        @if(($theoryLessonPlans ?? collect())->isNotEmpty())
+                        <div class="tab-pane fade show active" id="lp-theory-instr">
+                            <div id="accordionLpTI">
+                            @foreach($theoryLessonPlans as $lp)
+                            <div class="mb-2 border-0 shadow-sm" style="border-radius:8px;overflow:hidden;">
+                                <div class="d-flex align-items-center px-3 py-2"
+                                     style="background:#e8f4fd;cursor:pointer;"
+                                     data-toggle="collapse" data-target="#lpTI{{ $lp->id }}" aria-expanded="false">
+                                    <div class="d-flex align-items-center justify-content-center rounded-circle mr-3 flex-shrink-0"
+                                         style="width:32px;height:32px;background:var(--pd-blue);color:#fff;font-weight:700;font-size:.85rem;">
+                                        {{ $lp->pivot->class_order }}
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <strong style="font-size:.9rem;color:var(--pd-navy);">{{ $lp->title }}</strong>
+                                    </div>
+                                    <i class="fas fa-chevron-down text-muted" style="font-size:.75rem;"></i>
+                                </div>
+                                <div id="lpTI{{ $lp->id }}" class="collapse" data-parent="#accordionLpTI">
+                                    <div class="px-4 py-3"
+                                         style="font-size:.87rem;line-height:1.7;color:#444;background:#f7fbff;border-top:1px solid #cce5ff;">
+                                        @if($lp->content)
+                                            {!! $lp->content !!}
+                                        @else
+                                            <span class="text-muted"><i class="fas fa-info-circle mr-1"></i>No content available.</span>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                            @endforeach
+                            </div>
+                        </div>
+                        @endif
+
+                        {{-- Practical tab --}}
+                        @if(($practicalLessonPlans ?? collect())->isNotEmpty())
+                        <div class="tab-pane fade {{ ($theoryLessonPlans ?? collect())->isEmpty() ? 'show active' : '' }}"
+                             id="lp-practical-instr">
+                            <div id="accordionLpPI">
+                            @foreach($practicalLessonPlans as $lp)
+                            <div class="mb-2 border-0 shadow-sm" style="border-radius:8px;overflow:hidden;">
+                                <div class="d-flex align-items-center px-3 py-2"
+                                     style="background:#fff8e6;cursor:pointer;"
+                                     data-toggle="collapse" data-target="#lpPI{{ $lp->id }}" aria-expanded="false">
+                                    <div class="d-flex align-items-center justify-content-center rounded-circle mr-3 flex-shrink-0"
+                                         style="width:32px;height:32px;background:#f6c23e;color:#fff;font-weight:700;font-size:.85rem;">
+                                        {{ $lp->pivot->class_order }}
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <strong style="font-size:.9rem;color:var(--pd-navy);">{{ $lp->title }}</strong>
+                                    </div>
+                                    <i class="fas fa-chevron-down text-muted" style="font-size:.75rem;"></i>
+                                </div>
+                                <div id="lpPI{{ $lp->id }}" class="collapse" data-parent="#accordionLpPI">
+                                    <div class="px-4 py-3"
+                                         style="font-size:.87rem;line-height:1.7;color:#444;background:#fffdf5;border-top:1px solid #ffe8a0;">
+                                        @if($lp->content)
+                                            {!! $lp->content !!}
+                                        @else
+                                            <span class="text-muted"><i class="fas fa-info-circle mr-1"></i>No content available.</span>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                            @endforeach
+                            </div>
+                        </div>
+                        @endif
+
+                    </div>
+                </div>
+            </div>
+            @endif
+
         </div><!-- /col-lg-8 -->
     </div><!-- /row -->
 </div><!-- /container-fluid -->
+
+<!-- =========================================================
+     MODALS: Mark upcoming sessions as complete (all types)
+========================================================= -->
+@if(isset($upcomingAssigned))
+@foreach($upcomingAssigned as $sch)
+<div class="modal fade" id="markUpcomingModal{{ $sch->id }}" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header" style="background:var(--pd-navy);color:#fff;">
+                <h5 class="modal-title">
+                    <i class="fas fa-check-circle mr-2"></i>Mark {{ ucfirst($sch->session_type ?? 'Session') }} as Complete
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
+            </div>
+            <form action="{{ route('instructor.schedule.mark.complete', $sch->id) }}" method="POST">
+                @csrf
+                <div class="modal-body">
+                    <p><strong>Date:</strong> {{ \Carbon\Carbon::parse($sch->date)->format('M d, Y') }}</p>
+                    <p><strong>Time:</strong> {{ \Carbon\Carbon::parse($sch->start_time)->format('h:i A') }} — {{ \Carbon\Carbon::parse($sch->end_time)->format('h:i A') }}</p>
+                    <div class="form-group">
+                        <label>Notes (optional)</label>
+                        <textarea name="notes" class="form-control" rows="2" placeholder="Any notes about this session..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success"><i class="fas fa-check mr-1"></i>Mark Complete</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+@endforeach
+@endif
 
 <!-- =========================================================
      MODALS: Mark individual theory session as complete

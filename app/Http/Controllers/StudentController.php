@@ -256,6 +256,24 @@ class StudentController extends Controller
 
             $student = Student::create($studentData);
 
+            // Create a properly-typed first session using the selected slot's date/time.
+            $selectedSlot = CourseSchedule::findOrFail($request->course_slot);
+            $course        = Course::find($student->course_id);
+            $ct            = strtolower(trim($course->course_type ?? ''));
+            $sessionType   = ($ct === 'practical') ? 'practical' : 'theory'; // hybrid → theory first
+
+            $firstSchedule = CourseSchedule::create([
+                'course_id'    => $student->course_id,
+                'instructor_id'=> $student->instructor_id,
+                'date'         => Carbon::parse($selectedSlot->date)->format('Y-m-d'),
+                'start_time'   => Carbon::parse($selectedSlot->start_time)->format('H:i:s'),
+                'end_time'     => Carbon::parse($selectedSlot->end_time)->format('H:i:s'),
+                'session_type' => $sessionType,
+                'max_students' => 1,
+                'is_active'    => true,
+            ]);
+            $student->assignedSchedules()->attach($firstSchedule->id);
+
             // Load relationships for email
             $student->load(['course', 'instructor']);
 
@@ -594,7 +612,9 @@ class StudentController extends Controller
             $schedules = $allSchedules->merge($futureSchedules);
         } else {
             // For new registrations, only show future dates
-            $schedules = $query->where('date', '>=', Carbon::today('America/New_York'))->orderBy('date')->orderBy('start_time')->get();
+            $schedules = $query
+                ->where('date', '>=', Carbon::today('America/New_York'))
+                ->orderBy('date')->orderBy('start_time')->get();
         }
 
         $formattedSchedules = $schedules->map(function ($schedule) use ($currentScheduleId) {

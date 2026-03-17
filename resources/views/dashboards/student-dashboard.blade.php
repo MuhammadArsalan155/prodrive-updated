@@ -723,6 +723,163 @@
         </div>
     </div>
 
+    <!-- ===================== Lesson Plan Section ===================== -->
+    @php
+        $allLP = $student->course->lessonPlans ?? collect();
+        $theoryLP    = $allLP->filter(fn($lp) => $lp->pivot->class_type === 'theory')
+                             ->sortBy(fn($lp) => $lp->pivot->class_order)->values();
+        $practicalLP = $allLP->filter(fn($lp) => $lp->pivot->class_type === 'practical')
+                             ->sortBy(fn($lp) => $lp->pivot->class_order)->values();
+        $doneTheoryOrders    = collect($pastSchedules)->where('session_type', 'Theory')->pluck('class_order')->toArray();
+        $donePracticalOrders = collect($pastSchedules)->where('session_type', 'Practical')->pluck('class_order')->toArray();
+    @endphp
+    @if($theoryLP->isNotEmpty() || $practicalLP->isNotEmpty())
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3 d-flex align-items-center justify-content-between"
+                     style="background:linear-gradient(90deg,#1a237e 0%,#1565c0 100%);color:#fff;">
+                    <div>
+                        <h6 class="m-0 font-weight-bold"><i class="fas fa-list-ol mr-2"></i>My Course Lesson Plan</h6>
+                        <small style="opacity:.8;">Expand each class to view full lesson content</small>
+                    </div>
+                    <div>
+                        @if($theoryLP->isNotEmpty())
+                            <span class="badge badge-light mr-1" style="color:#1a237e;">
+                                <i class="fas fa-book mr-1"></i>Theory: {{ $theoryLP->count() }}
+                            </span>
+                        @endif
+                        @if($practicalLP->isNotEmpty())
+                            <span class="badge badge-warning">
+                                <i class="fas fa-car mr-1"></i>Practical: {{ $practicalLP->count() }}
+                            </span>
+                        @endif
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <ul class="nav nav-tabs px-3 pt-2" id="lpTabsStudent">
+                        @if($theoryLP->isNotEmpty())
+                        <li class="nav-item">
+                            <a class="nav-link active font-weight-bold" data-toggle="tab" href="#lp-theory-std">
+                                <i class="fas fa-book mr-1 text-primary"></i>Theory
+                                <span class="badge badge-primary ml-1">{{ $theoryLP->count() }}</span>
+                                @if(count($doneTheoryOrders) > 0)
+                                    <span class="badge badge-success ml-1">{{ count($doneTheoryOrders) }} done</span>
+                                @endif
+                            </a>
+                        </li>
+                        @endif
+                        @if($practicalLP->isNotEmpty())
+                        <li class="nav-item">
+                            <a class="nav-link font-weight-bold {{ $theoryLP->isEmpty() ? 'active' : '' }}"
+                               data-toggle="tab" href="#lp-practical-std">
+                                <i class="fas fa-car mr-1 text-warning"></i>Practical
+                                <span class="badge badge-warning ml-1">{{ $practicalLP->count() }}</span>
+                                @if(count($donePracticalOrders) > 0)
+                                    <span class="badge badge-success ml-1">{{ count($donePracticalOrders) }} done</span>
+                                @endif
+                            </a>
+                        </li>
+                        @endif
+                    </ul>
+
+                    <div class="tab-content px-3 py-3">
+
+                        {{-- Theory tab --}}
+                        @if($theoryLP->isNotEmpty())
+                        <div class="tab-pane fade show active" id="lp-theory-std">
+                            <div id="accordionLpTS">
+                            @foreach($theoryLP as $lp)
+                            @php $isDone = in_array($lp->pivot->class_order, $doneTheoryOrders); @endphp
+                            <div class="mb-2 shadow-sm" style="border-radius:8px;overflow:hidden;">
+                                <div class="d-flex align-items-center px-3 py-2"
+                                     style="background:{{ $isDone ? '#e8f5e9' : '#e8f4fd' }};cursor:pointer;"
+                                     data-toggle="collapse" data-target="#lpTS{{ $lp->id }}" aria-expanded="false">
+                                    <div class="d-flex align-items-center justify-content-center rounded-circle mr-3 flex-shrink-0"
+                                         style="width:34px;height:34px;background:{{ $isDone ? '#28a745' : '#1565c0' }};color:#fff;font-weight:700;font-size:.85rem;">
+                                        {{ $isDone ? '✓' : $lp->pivot->class_order }}
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <strong style="font-size:.9rem;color:#1a237e;">Class {{ $lp->pivot->class_order }}: {{ $lp->title }}</strong>
+                                    </div>
+                                    <div class="ml-2 d-flex align-items-center" style="gap:.4rem;">
+                                        @if($isDone)
+                                            <span class="badge badge-success" style="font-size:.7rem;">
+                                                <i class="fas fa-check-circle mr-1"></i>Completed
+                                            </span>
+                                        @else
+                                            <span class="badge badge-light text-muted" style="font-size:.7rem;">Pending</span>
+                                        @endif
+                                        <i class="fas fa-chevron-down text-muted" style="font-size:.75rem;"></i>
+                                    </div>
+                                </div>
+                                <div id="lpTS{{ $lp->id }}" class="collapse" data-parent="#accordionLpTS">
+                                    <div class="px-4 py-3"
+                                         style="font-size:.87rem;line-height:1.7;color:#444;background:{{ $isDone ? '#f1fff4' : '#f7fbff' }};border-top:1px solid {{ $isDone ? '#b7e4c7' : '#cce5ff' }};">
+                                        @if($lp->content)
+                                            {!! $lp->content !!}
+                                        @else
+                                            <span class="text-muted"><i class="fas fa-info-circle mr-1"></i>No content available for this lesson.</span>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                            @endforeach
+                            </div>
+                        </div>
+                        @endif
+
+                        {{-- Practical tab --}}
+                        @if($practicalLP->isNotEmpty())
+                        <div class="tab-pane fade {{ $theoryLP->isEmpty() ? 'show active' : '' }}" id="lp-practical-std">
+                            <div id="accordionLpPS">
+                            @foreach($practicalLP as $lp)
+                            @php $isDone = in_array($lp->pivot->class_order, $donePracticalOrders); @endphp
+                            <div class="mb-2 shadow-sm" style="border-radius:8px;overflow:hidden;">
+                                <div class="d-flex align-items-center px-3 py-2"
+                                     style="background:{{ $isDone ? '#e8f5e9' : '#fff8e6' }};cursor:pointer;"
+                                     data-toggle="collapse" data-target="#lpPS{{ $lp->id }}" aria-expanded="false">
+                                    <div class="d-flex align-items-center justify-content-center rounded-circle mr-3 flex-shrink-0"
+                                         style="width:34px;height:34px;background:{{ $isDone ? '#28a745' : '#f6c23e' }};color:#fff;font-weight:700;font-size:.85rem;">
+                                        {{ $isDone ? '✓' : $lp->pivot->class_order }}
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <strong style="font-size:.9rem;color:#1a237e;">Class {{ $lp->pivot->class_order }}: {{ $lp->title }}</strong>
+                                    </div>
+                                    <div class="ml-2 d-flex align-items-center" style="gap:.4rem;">
+                                        @if($isDone)
+                                            <span class="badge badge-success" style="font-size:.7rem;">
+                                                <i class="fas fa-check-circle mr-1"></i>Completed
+                                            </span>
+                                        @else
+                                            <span class="badge badge-light text-muted" style="font-size:.7rem;">Pending</span>
+                                        @endif
+                                        <i class="fas fa-chevron-down text-muted" style="font-size:.75rem;"></i>
+                                    </div>
+                                </div>
+                                <div id="lpPS{{ $lp->id }}" class="collapse" data-parent="#accordionLpPS">
+                                    <div class="px-4 py-3"
+                                         style="font-size:.87rem;line-height:1.7;color:#444;background:{{ $isDone ? '#f1fff4' : '#fffdf5' }};border-top:1px solid {{ $isDone ? '#b7e4c7' : '#ffe8a0' }};">
+                                        @if($lp->content)
+                                            {!! $lp->content !!}
+                                        @else
+                                            <span class="text-muted"><i class="fas fa-info-circle mr-1"></i>No content available for this lesson.</span>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                            @endforeach
+                            </div>
+                        </div>
+                        @endif
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
     <!-- Payment Modal -->
     <div class="modal fade" id="paymentModal" tabindex="-1" role="dialog" aria-labelledby="paymentModalLabel" aria-hidden="true">
         <div class="modal-dialog" role="document">

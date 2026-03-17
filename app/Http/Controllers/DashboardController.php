@@ -590,9 +590,13 @@ class DashboardController extends Controller
             ->orderBy('session_number')
             ->get();
 
-        // Theory schedules for this student's course (not filtered by instructor_id,
-        // since schedules are created at course level by admin)
-        $theorySchedules = CourseSchedule::where('course_id', $student->course_id)
+        // Theory schedules explicitly assigned to this student (via pivot) — same
+        // approach as practical, so only the student's own sessions are listed.
+        $theorySchedules = CourseSchedule::whereIn('id', function ($q) use ($student) {
+                $q->select('course_schedule_id')
+                  ->from('course_schedule_student')
+                  ->where('student_id', $student->id);
+            })
             ->where('session_type', 'theory')
             ->orderBy('date')
             ->get();
@@ -611,6 +615,21 @@ class DashboardController extends Controller
         $sessionAttendances = SessionAttendance::where('student_id', $student->id)
             ->get()
             ->keyBy('course_schedule_id');
+
+        // All pivot-assigned future sessions not yet attended — mirrors the student's
+        // "Upcoming Classes" tab exactly (no session_type filter).
+        $attendedIds = $sessionAttendances->keys()->toArray();
+        $upcomingAssigned = CourseSchedule::whereIn('id', function ($q) use ($student) {
+                $q->select('course_schedule_id')
+                  ->from('course_schedule_student')
+                  ->where('student_id', $student->id);
+            })
+            ->where('date', '>=', now()->toDateString())
+            ->where('is_active', true)
+            ->whereNotIn('id', $attendedIds)
+            ->orderBy('date')
+            ->orderBy('start_time')
+            ->get();
 
         // Existing evaluation (if any)
         $evaluation = InstructorEvaluation::where('student_id', $student->id)
@@ -641,14 +660,12 @@ class DashboardController extends Controller
             ->join('course_schedule_student', 'course_schedules.id', '=', 'course_schedule_student.course_schedule_id')
             ->where('course_schedule_student.student_id', $student->id)
             ->where('course_schedules.session_type', 'theory')
-            ->where('course_schedules.date', '>=', now()->toDateString())
             ->whereNotIn('course_schedules.id', $attendedScheduleIds)
             ->count();
         $pendingAssignedPractical = DB::table('course_schedules')
             ->join('course_schedule_student', 'course_schedules.id', '=', 'course_schedule_student.course_schedule_id')
             ->where('course_schedule_student.student_id', $student->id)
             ->where('course_schedules.session_type', 'practical')
-            ->where('course_schedules.date', '>=', now()->toDateString())
             ->whereNotIn('course_schedules.id', $attendedScheduleIds)
             ->count();
 
@@ -688,6 +705,10 @@ class DashboardController extends Controller
 
         $availableSchedules = $availableQuery->orderBy('date')->orderBy('start_time')->get();
 
+        // Lesson plans for the student's course, grouped by type
+        $theoryLessonPlans    = $course ? $course->theoryLessonPlans()->get()    : collect();
+        $practicalLessonPlans = $course ? $course->practicalLessonPlans()->get() : collect();
+
         // Pending reschedule requests from this student
         $rescheduleRequests = ScheduleRescheduleRequest::where('student_id', $student->id)
             ->with('schedule')
@@ -701,12 +722,15 @@ class DashboardController extends Controller
             'practicalSessions'    => $practicalSessions,
             'theorySchedules'      => $theorySchedules,
             'practicalSchedules'   => $practicalSchedules,
+            'upcomingAssigned'     => $upcomingAssigned,
             'sessionAttendances'   => $sessionAttendances,
             'evaluation'           => $evaluation,
             'availableSchedules'   => $availableSchedules,
             'assignedScheduleIds'  => $assignedScheduleIds,
-            'classProgress'        => $classProgress,
-            'rescheduleRequests'   => $rescheduleRequests,
+            'classProgress'           => $classProgress,
+            'rescheduleRequests'      => $rescheduleRequests,
+            'theoryLessonPlans'       => $theoryLessonPlans,
+            'practicalLessonPlans'    => $practicalLessonPlans,
         ]);
     }
 
